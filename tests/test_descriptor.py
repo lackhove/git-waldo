@@ -48,7 +48,7 @@ def test_a_full_url_supplies_user_host_port_and_path(
     result.assert_exit(0)
     result.assert_stderr_empty()
     call = fake_ssh.calls[-1]
-    assert (call.host, call.user, call.port) == ("fake-target", "root", 22222)
+    assert (call.host, call.user, call.port) == ("fake-target", "user", 22222)
 
 
 def test_descriptor_only_url_resolves_everything_from_toml(

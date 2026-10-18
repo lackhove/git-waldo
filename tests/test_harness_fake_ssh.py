@@ -215,5 +215,5 @@ def test_ssh_options_are_parsed_and_recorded(fake_ssh):
     assert result.returncode == 0
     call = fake_ssh.calls[-1]
     assert call.host == "fake-target"
-    assert call.user == "root"
+    assert call.user == "user"
     assert call.port == 22222
