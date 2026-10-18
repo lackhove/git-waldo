@@ -6,16 +6,20 @@ is git's remote-helper protocol (``<remote> <url>``).
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
 
 from tarssh import __version__
-from tarssh import descriptor as descriptor_module
+from tarssh.descriptor import (
+    Descriptor,
+    repository_root,
+    resolve,
+    write_descriptor,
+)
 from tarssh.errors import ProtocolError
-from tarssh.gitcmd import GitStore
+from tarssh.gitcmd import GitStore, git_output
 from tarssh.push import PushSession, push_refs
 from tarssh.snapshot import MAIN_REF, snapshot
 from tarssh.target import Target
@@ -36,15 +40,9 @@ def err(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], cwd=root, text=True, capture_output=True, check=False
-    )
-
-
 def ensure_target_remote(root: Path) -> None:
     """Register ``target`` as ``tarssh::`` unless it already exists."""
-    existing = _git(root, "remote", "get-url", "target")
+    existing = git_output(["remote", "get-url", "target"], root)
     if existing.returncode == 0:
         err(
             f"git-remote-tarssh: target remote already exists "
@@ -52,7 +50,7 @@ def ensure_target_remote(root: Path) -> None:
         )
         return
 
-    added = _git(root, "remote", "add", "target", "tarssh::")
+    added = git_output(["remote", "add", "target", "tarssh::"], root)
     if added.returncode != 0:
         detail = (added.stderr or added.stdout).strip()
         raise ProtocolError(f"cannot add the target remote: {detail}")
@@ -60,13 +58,13 @@ def ensure_target_remote(root: Path) -> None:
 
 
 def config_mode() -> int:
-    root = descriptor_module.repository_root()
+    root = repository_root()
     if root is None:
         raise ProtocolError(
             "--config must run inside a git repository: "
             "git rev-parse --show-toplevel failed"
         )
-    path = descriptor_module.write_descriptor(root, stdin=sys.stdin, stdout=sys.stderr)
+    path = write_descriptor(root, stdin=sys.stdin, stdout=sys.stderr)
     err(f"git-remote-tarssh: wrote {path}")
     ensure_target_remote(root)
     return 0
@@ -111,7 +109,7 @@ def handle_fetch(store: GitStore, stdin: TextIO, first: str, stdout: TextIO) -> 
 def handle_list(
     store: GitStore,
     target: Target,
-    descriptor: descriptor_module.Descriptor,
+    descriptor: Descriptor,
     remote: str,
     *,
     for_push: bool,
@@ -138,7 +136,7 @@ def command_loop(
     stdout: TextIO,
     *,
     remote: str,
-    descriptor: descriptor_module.Descriptor,
+    descriptor: Descriptor,
     target: Target,
     store: GitStore,
 ) -> int:
@@ -195,7 +193,7 @@ def helper_mode(argv: Sequence[str]) -> int:
         return 2
     remote, url = argv[0], argv[1]
 
-    resolved = descriptor_module.resolve(url)
+    resolved = resolve(url)
     for warning in resolved.warnings:
         err(warning)
 

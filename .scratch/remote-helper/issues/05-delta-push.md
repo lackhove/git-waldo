@@ -6,15 +6,15 @@
 
 **Status:** resolved
 
-- [ ] Added and modified paths are written via a git archive piped into a target-side tar extraction; deletions use `rm -f` with `./`-relative paths in chunks of about 500 per SSH call.
-- [ ] The lock is taken before the clean check, so two concurrent pushes cannot both pass it, and is released on every exit path.
-- [ ] The clean check compares the freshly built snapshot tree with the remote branch tree; drift rejection sends `error <dst> target has local changes: <paths>` with the first ten paths and a count.
-- [ ] Fast-forward is verified against the oid advertised by `list for-push`, remembered in-process, unless the ref is being created; a non-fast-forward push sends `error <dst> non-fast forward`.
-- [ ] Paths outside the delta are untouched; untracked and ignored target files survive; directories emptied by deletion remain.
-- [ ] `git push --dry-run` simulates the delta and writes nothing.
-- [ ] A no-op push reports `already up to date` on stderr.
-- [ ] The helper never writes the remote branch; git updates it.
-- [ ] Tests cover add, modify, delete, no-op, drift, non-fast-forward, dry-run, and target-side survival.
+- [x] Added and modified paths are written via a git archive piped into a target-side tar extraction; deletions use `rm -f` with `./`-relative paths in chunks of about 500 per SSH call.
+- [x] The lock is taken before the clean check, so two concurrent pushes cannot both pass it, and is released on every exit path.
+- [x] The clean check compares the freshly built snapshot tree with the remote branch tree; drift rejection sends `error <dst> target has local changes: <paths>` with the first ten paths and a count.
+- [x] Fast-forward is verified against the oid advertised by `list for-push`, remembered in-process, unless the ref is being created; a non-fast-forward push sends `error <dst> non-fast forward`.
+- [x] Paths outside the delta are untouched; untracked and ignored target files survive; directories emptied by deletion remain.
+- [x] `git push --dry-run` simulates the delta and writes nothing.
+- [x] A no-op push reports `already up to date` on stderr.
+- [x] The helper never writes the remote branch; git updates it.
+- [x] Tests cover add, modify, delete, no-op, drift, non-fast-forward, dry-run, and target-side survival.
 
 ## Answer
 

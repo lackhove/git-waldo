@@ -7,31 +7,15 @@ import sys
 from push_support import (
     IDENT,
     commit,
+    deploy_message,
     git,
     head_tree,
     lock_path,
-    make_repo,
+    make_pushed_repo,
     push,
     target_tree,
+    up_to_date_message,
 )
-
-CONFIG_FILES = {
-    "a.txt": (b"alpha\n", 0o644),
-    "sub/b.sh": (b"#!/bin/sh\necho beta\n", 0o755),
-}
-
-
-def first_push(repo, env):
-    completed = push(repo, env, "-u")
-    assert completed.returncode == 0, completed.stderr
-    return completed
-
-
-def make_pushed_repo(fake_ssh, tmp_path, env, files=None):
-    repo = make_repo(tmp_path, env, files or CONFIG_FILES)
-    git(["remote", "add", "target", fake_ssh.url], repo, env)
-    first_push(repo, env)
-    return repo
 
 
 def test_a_push_adds_a_new_path(fake_ssh, target, real_git_env, tmp_path):
@@ -43,7 +27,7 @@ def test_a_push_adds_a_new_path(fake_ssh, target, real_git_env, tmp_path):
 
     assert completed.returncode == 0, completed.stderr
     assert target_tree(target) == head_tree(repo, real_git_env)
-    assert "deploying 1 changes: 1 written, 0 deleted" in completed.stderr
+    assert deploy_message(target, 1, 0) in completed.stderr
     assert target.read_text("added.txt") == "new\n"
 
 
@@ -56,7 +40,7 @@ def test_a_push_modifies_an_existing_path(fake_ssh, target, real_git_env, tmp_pa
 
     assert completed.returncode == 0, completed.stderr
     assert target.read_text("a.txt") == "changed\n"
-    assert "deploying 1 changes: 1 written, 0 deleted" in completed.stderr
+    assert deploy_message(target, 1, 0) in completed.stderr
 
 
 def test_a_push_deletes_a_removed_path(fake_ssh, target, real_git_env, tmp_path):
@@ -68,7 +52,7 @@ def test_a_push_deletes_a_removed_path(fake_ssh, target, real_git_env, tmp_path)
 
     assert completed.returncode == 0, completed.stderr
     assert not target.exists("a.txt")
-    assert "deploying 1 changes: 0 written, 1 deleted" in completed.stderr
+    assert deploy_message(target, 0, 1) in completed.stderr
     assert any(
         call.command.endswith("rm -f ./a.txt") for call in fake_ssh.calls
     )
@@ -98,7 +82,7 @@ def test_a_combined_delta_writes_and_deletes_exactly_once(
 
     assert completed.returncode == 0, completed.stderr
     assert target_tree(target) == head_tree(repo, real_git_env)
-    assert "deploying 3 changes: 2 written, 1 deleted" in completed.stderr
+    assert deploy_message(target, 2, 1) in completed.stderr
     extractions = [
         call.command
         for call in fake_ssh.calls[before:]
@@ -127,7 +111,7 @@ def test_an_empty_delta_reports_already_up_to_date(
     completed = push(repo, real_git_env)
 
     assert completed.returncode == 0, completed.stderr
-    assert "already up to date" in completed.stderr
+    assert up_to_date_message(target) in completed.stderr
     assert target_tree(target) == before
     assert not any(
         call.command.startswith("tar -o -xf") or " rm -f " in call.command
@@ -160,7 +144,7 @@ def test_ignored_target_files_survive_a_delta_and_do_not_cause_drift(
     completed = push(repo, real_git_env)
 
     assert completed.returncode == 0, completed.stderr
-    assert "deploying 1 changes: 1 written, 0 deleted" in completed.stderr
+    assert deploy_message(target, 1, 0) in completed.stderr
     assert target.read_text("runtime/state.json") == '{"state": "on"}\n'
     assert target.read_text("local-notes.txt") == "operator only\n"
     assert target.read_text("a.txt") == "changed\n"
@@ -275,7 +259,7 @@ def test_dry_run_simulates_the_delta_and_writes_nothing(
     completed = push(repo, real_git_env, "--dry-run")
 
     assert completed.returncode == 0, completed.stderr
-    assert "deploying 3 changes: 2 written, 1 deleted" in completed.stderr
+    assert deploy_message(target, 2, 1) in completed.stderr
     assert target_tree(target) == before
     assert (
         git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
@@ -315,7 +299,7 @@ def test_the_lock_is_held_from_list_for_push_through_the_deploy(
         "ok refs/heads/main",
         "",
     )
-    assert "deploying 1 changes: 1 written, 0 deleted" in result.stderr_lines
+    assert deploy_message(target, 1, 0) in result.stderr_lines
     commands = [call.command for call in fake_ssh.calls[calls_before:]]
     lock = lock_path(target)
     taken = commands.index(f"mkdir {lock}")
@@ -415,7 +399,7 @@ def test_added_paths_are_archived_in_chunks_below_arg_max(
     completed = push(repo, real_git_env)
 
     assert completed.returncode == 0, completed.stderr
-    assert "deploying 501 changes: 501 written, 0 deleted" in completed.stderr
+    assert deploy_message(target, 501, 0) in completed.stderr
     extractions = [
         call
         for call in fake_ssh.calls[calls_before:]
@@ -442,7 +426,7 @@ def test_deleted_paths_are_removed_in_chunks_below_arg_max(
     completed = push(repo, real_git_env)
 
     assert completed.returncode == 0, completed.stderr
-    assert "deploying 501 changes: 0 written, 501 deleted" in completed.stderr
+    assert deploy_message(target, 0, 501) in completed.stderr
     removals = [
         call for call in fake_ssh.calls[calls_before:] if " rm -f " in call.command
     ]

@@ -137,9 +137,12 @@ def _fence_specs(
         if content is not None:
             specs.append(_ignore_spec(content))
     if specs:
-        # A local fence exists; the target's own file is just another tracked
-        # target file, not a second source of filtering.
+        # Either local fence exists, so normal fetches use only their union.
+        # The target's own file is just another tracked target file here.
         return specs
+    # No local fence exists: cloning a non-empty target (or a repository with
+    # no HEAD yet) cannot see a tracked .gitignore. The target's own file is
+    # the only safe fallback, keeping runtime state out of the first snapshot.
     content = _target_fence(target, candidates)
     return [_ignore_spec(content)] if content is not None else []
 

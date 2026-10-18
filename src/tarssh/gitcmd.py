@@ -17,7 +17,6 @@ from pathlib import Path
 
 from tarssh.errors import ProtocolError
 
-EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 IDENT = {
     "GIT_AUTHOR_NAME": "tarssh",
     "GIT_AUTHOR_EMAIL": "tarssh@localhost",
@@ -26,7 +25,10 @@ IDENT = {
 }
 
 
-def _git(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def git_output(
+    args: list[str], cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Run one git command, separating the caller's own failure handling."""
     return subprocess.run(
         ["git", *args],
         cwd=cwd,
@@ -46,10 +48,10 @@ class GitStore:
     @classmethod
     def discover(cls, cwd: Path | None = None) -> GitStore:
         """Use the current repository, or a temporary bare one outside a repo."""
-        probe = _git(["rev-parse", "--absolute-git-dir"], cwd)
+        probe = git_output(["rev-parse", "--absolute-git-dir"], cwd)
         if probe.returncode == 0:
             git_dir = Path(probe.stdout.strip())
-            object_format = _git(["rev-parse", "--show-object-format"], cwd)
+            object_format = git_output(["rev-parse", "--show-object-format"], cwd)
             if object_format.returncode != 0:
                 raise ProtocolError(
                     f"cannot determine the repository object format: "
@@ -64,7 +66,7 @@ class GitStore:
             return cls(git_dir)
 
         directory = Path(tempfile.mkdtemp(prefix="tarssh-objects-"))
-        init = _git(
+        init = git_output(
             ["init", "--quiet", "--bare", "--object-format=sha1", str(directory)],
             cwd=cwd,
         )

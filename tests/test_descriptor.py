@@ -1,4 +1,4 @@
-"""Descriptor precedence, divergence warnings and URL shapes."""
+"""Descriptor precedence, disagreement warnings and URL shapes."""
 
 from __future__ import annotations
 
@@ -96,6 +96,7 @@ def test_environment_wins_over_url_and_toml_per_field(
     ).list()
 
     result.assert_exit(0)
+    result.assert_stderr_empty()
     call = fake_ssh.calls[-1]
     assert (call.host, call.user, call.port) == ("fake-target", "env-user", 22222)
 
@@ -132,6 +133,58 @@ def test_url_and_toml_disagreement_is_one_stderr_line(
     assert "file-host" in line
     assert "remote URL" in line
     assert TOML_NAME in line
+    assert fake_ssh.calls[-1].host == "fake-target"
+
+
+def test_several_url_disagreements_are_still_one_stderr_line(
+    make_driver, fake_ssh, target, tarssh_env, tmp_path
+):
+    target.create()
+    repo = _repo_with_toml(
+        tmp_path,
+        user="file-user",
+        host="file-host",
+        ssh_port=2222,
+        dir="/file/dir",
+    )
+    url = f"tarssh://url-user@fake-target:22222{target.path}"
+
+    result = _driver(make_driver, tmp_path, url, tarssh_env, cwd=repo).list()
+
+    result.assert_exit(0)
+    assert len(result.stderr_lines) == 1
+    line = result.stderr_lines[0]
+    assert "remote URL" in line
+    assert TOML_NAME in line
+    for value in (
+        "url-user",
+        "fake-target",
+        "22222",
+        str(target.path),
+        "file-user",
+        "file-host",
+        "2222",
+        "/file/dir",
+    ):
+        assert value in line
+    call = fake_ssh.calls[-1]
+    assert (call.host, call.user, call.port) == ("fake-target", "url-user", 22222)
+
+
+def test_an_environment_override_suppresses_the_warning_for_that_field(
+    make_driver, fake_ssh, target, tarssh_env, tmp_path
+):
+    target.create()
+    repo = _repo_with_toml(tmp_path, host="file-host", dir=str(target.path))
+    env = dict(tarssh_env)
+    env["TARSSH_HOST"] = "fake-target"
+
+    result = _driver(
+        make_driver, tmp_path, f"tarssh://fake-target{target.path}", env, cwd=repo
+    ).list()
+
+    result.assert_exit(0)
+    result.assert_stderr_empty()
     assert fake_ssh.calls[-1].host == "fake-target"
 
 

@@ -6,15 +6,15 @@
 
 **Status:** resolved
 
-- [ ] The helper advertises `push` and implements `list for-push` with the real oid.
-- [ ] `git push -u target main` against a missing or empty target creates the directory with `mkdir -p` and deploys the full commit; the target tree equals `HEAD` for non-ignored paths.
-- [ ] Deployed files keep target-side ownership, not the client's uid.
-- [ ] A lock named from the target path is taken on the target under `/tmp` before deployment and released on every exit path; failure to take it is a protocol-level error.
-- [ ] `git push --dry-run` reports the would-be deploy on stderr and writes nothing.
-- [ ] Per-ref statuses are printed; git updates the remote branch itself.
-- [ ] A push when the remote branch already exists is refused with a clear temporary error saying delta pushes are not yet implemented.
-- [ ] Operator output goes to stderr; stdout remains protocol-only.
-- [ ] Tests verify the resulting target filesystem directly and never contact a live target.
+- [x] The helper advertises `push` and implements `list for-push` with the real oid.
+- [x] `git push -u target main` against a missing or empty target creates the directory with `mkdir -p` and deploys the full commit; the target tree equals `HEAD` for non-ignored paths.
+- [x] Deployed files keep target-side ownership, not the client's uid.
+- [x] A lock named from the target path is taken on the target under `/tmp` before deployment and released on every exit path; failure to take it is a protocol-level error.
+- [x] `git push --dry-run` reports the would-be deploy on stderr and writes nothing.
+- [x] Per-ref statuses are printed; git updates the remote branch itself.
+- [x] A push when the remote branch already exists is refused with a clear temporary error saying delta pushes are not yet implemented.
+- [x] Operator output goes to stderr; stdout remains protocol-only.
+- [x] Tests verify the resulting target filesystem directly and never contact a live target.
 
 ## Answer
 

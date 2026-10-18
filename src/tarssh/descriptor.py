@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import getpass
 import os
-import subprocess
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -18,6 +17,7 @@ from typing import TextIO
 from urllib.parse import unquote, urlsplit
 
 from tarssh.errors import ProtocolError
+from tarssh.gitcmd import git_output
 
 TOML_NAME = ".tarssh.toml"
 DEFAULT_PORT = 22
@@ -91,19 +91,9 @@ def parse_remote_url(url: str) -> UrlTarget | None:
     return UrlTarget(user=user, host=host, port=port, path=path)
 
 
-def _git_output(args: list[str], cwd: Path | None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args],
-        cwd=cwd,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-
 def repository_root(cwd: Path | None = None) -> Path | None:
     """The config repo root, found with git, never inferred from the cwd."""
-    completed = _git_output(["rev-parse", "--show-toplevel"], cwd)
+    completed = git_output(["rev-parse", "--show-toplevel"], cwd)
     if completed.returncode != 0:
         return None
     root = completed.stdout.strip()
@@ -163,12 +153,30 @@ def _local_username() -> str:
         return "root"
 
 
-def _warn(warnings: list[str], field: str, url_value: object, file_value: object) -> None:
-    if url_value is not None and file_value is not None and url_value != file_value:
-        warnings.append(
-            f"using {field} {url_value} from the remote URL; "
-            f"{TOML_NAME} says {file_value}"
-        )
+def _disagreement_line(
+    fields: Mapping[str, object],
+    explicit: Mapping[str, object],
+    overridden: Mapping[str, bool],
+) -> str | None:
+    """One line for the URL fields whose effective value contradicts the file.
+
+    A field appears only when the URL carries it explicitly, its effective value
+    still comes from the URL (no ``TARSSH_*`` override), and the file says
+    something different. Precedence is unchanged; this is reporting only.
+    """
+    differences = [
+        (name, url_value, fields.get(name))
+        for name, url_value in explicit.items()
+        if url_value is not None
+        and fields.get(name) is not None
+        and url_value != fields.get(name)
+        and not overridden[name]
+    ]
+    if not differences:
+        return None
+    url_side = ", ".join(f"{name}={value}" for name, value, _ in differences)
+    file_side = ", ".join(f"{name}={value}" for name, _, value in differences)
+    return f"using {url_side} from the remote URL; {TOML_NAME} says {file_side}"
 
 
 def resolve(
@@ -182,22 +190,33 @@ def resolve(
     shown_url = url or "tarssh::"
     fields, _ = read_toml(root) if (root := repository_root(cwd)) else ({}, None)
     env = _environment(environ)
-    warnings: list[str] = []
 
     url_user = parsed.user if parsed else None
     url_host = parsed.host if parsed else None
     url_port = parsed.port if parsed else None
     url_path = parsed.path if parsed else None
 
-    _warn(warnings, "user", url_user, fields.get("user"))
-    _warn(warnings, "host", url_host, fields.get("host"))
-    _warn(warnings, "ssh_port", url_port, fields.get("ssh_port"))
-    _warn(warnings, "dir", url_path, fields.get("dir"))
-
     env_user = _value(env, ENV_FIELDS["user"])
     env_host = _value(env, ENV_FIELDS["host"])
     env_port = _value(env, ENV_FIELDS["ssh_port"])
     env_dir = _value(env, ENV_FIELDS["dir"])
+
+    warning = _disagreement_line(
+        fields,
+        {
+            "user": url_user,
+            "host": url_host,
+            "ssh_port": url_port,
+            "dir": url_path,
+        },
+        {
+            "user": env_user is not None,
+            "host": env_host is not None,
+            "ssh_port": env_port is not None,
+            "dir": env_dir is not None,
+        },
+    )
+    warnings = (warning,) if warning is not None else ()
 
     host = env_host or url_host or fields.get("host")
     if not host:

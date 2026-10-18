@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
-import hashlib
+import getpass
 import os
 import subprocess
 from pathlib import Path
+
+from tarssh.descriptor import Descriptor
+from tarssh.target import Target as RemoteTarget
+
+CONFIG_FILES = {
+    "a.txt": (b"alpha\n", 0o644),
+    "sub/b.sh": (b"#!/bin/sh\necho beta\n", 0o755),
+}
 
 IDENT = {
     "GIT_AUTHOR_NAME": "test",
@@ -80,9 +88,34 @@ def target_tree(target):
     return entries
 
 
+def make_pushed_repo(fake_ssh, tmp_path, env, files=None):
+    repo = make_repo(tmp_path, env, files or CONFIG_FILES)
+    git(["remote", "add", "target", fake_ssh.url], repo, env)
+    completed = push(repo, env, "-u")
+    assert completed.returncode == 0, completed.stderr
+    return repo
+
+
 def lock_path(target):
-    digest = hashlib.sha256(str(target.path).encode()).hexdigest()[:16]
-    return Path("/tmp") / f"tarssh-{digest}.lock"
+    descriptor = Descriptor(
+        user="test", host="fake-target", port=22, path=str(target.path), url=""
+    )
+    return Path(RemoteTarget(descriptor).lock_path())
+
+
+def target_label(target):
+    return f"{getpass.getuser()}@fake-target:22:{target.path}"
+
+
+def deploy_message(target, written, deleted):
+    return (
+        f"deploying {written + deleted} changes to {target_label(target)}: "
+        f"{written} written, {deleted} deleted"
+    )
+
+
+def up_to_date_message(target):
+    return f"already up to date with {target_label(target)}"
 
 
 def push(repo, env, *args, remote="target"):

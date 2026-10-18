@@ -6,13 +6,13 @@
 
 **Status:** resolved
 
-- [ ] `git-remote-tarssh --version` prints the tool version and exits 0.
-- [ ] `--config` writes `user`, `host`, `ssh_port`, and `dir` to `.tarssh.toml` at the repository root.
-- [ ] An existing `.tarssh.toml` is not overwritten without explicit confirmation.
-- [ ] When no `target` remote exists, `--config` adds it as `tarssh::`; when one exists, it is left untouched and the operator is told.
-- [ ] A leading `-` in the first argument is always treated as a verb, never as a remote name.
-- [ ] Running outside a git repository fails clearly.
-- [ ] Tests use the harness or direct CLI invocation and never contact a live target.
+- [x] `git-remote-tarssh --version` prints the tool version and exits 0.
+- [x] `--config` writes `user`, `host`, `ssh_port`, and `dir` to `.tarssh.toml` at the repository root.
+- [x] An existing `.tarssh.toml` is not overwritten without explicit confirmation.
+- [x] When no `target` remote exists, `--config` adds it as `tarssh::`; when one exists, it is left untouched and the operator is told.
+- [x] A leading `-` in the first argument is always treated as a verb, never as a remote name.
+- [x] Running outside a git repository fails clearly.
+- [x] Tests use the harness or direct CLI invocation and never contact a live target.
 
 ## Answer
 
