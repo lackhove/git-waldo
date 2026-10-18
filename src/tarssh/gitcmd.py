@@ -119,6 +119,22 @@ class GitStore:
     def tree_of(self, rev: str) -> str:
         return self.out("rev-parse", f"{rev}^{{tree}}")
 
+    def read_at(self, rev: str, path: str) -> bytes | None:
+        """The raw blob at ``rev:path``, or ``None`` when it does not exist.
+
+        ``None`` also covers an unborn ref: neither a first fetch nor a repo
+        without a ``.gitignore`` at ``HEAD`` has a local fence.
+        """
+        completed = subprocess.run(
+            ["git", "cat-file", "blob", f"{rev}:{path}"],
+            capture_output=True,
+            env=self._environment(),
+            check=False,
+        )
+        if completed.returncode != 0:
+            return None
+        return completed.stdout
+
     def has_commit(self, oid: str) -> bool:
         completed = self.run(
             "rev-parse", "--verify", "--quiet", f"{oid}^{{commit}}", check=False

@@ -45,6 +45,43 @@ def test_clone_of_an_empty_target_creates_the_snapshot_on_main(
     assert "?" not in completed.stdout
 
 
+def test_clone_of_a_populated_target_records_its_files(
+    fake_ssh, target, real_git_env, tmp_path
+):
+    target.populate(
+        {
+            "settings.yaml": "application:\n",
+            "scripts/night.yaml": "alias: night\n",
+        }
+    )
+    target.write("bin/run.sh", "#!/bin/sh\nexit 0\n", mode=0o755)
+    target.symlink("latest", "settings.yaml")
+    clone = tmp_path / "populated-clone"
+
+    completed = _git(["clone", fake_ssh.url, str(clone)], tmp_path, real_git_env, check=False)
+
+    assert completed.returncode == 0, completed.stderr
+    listing = _git(["ls-tree", "-r", "HEAD"], clone, real_git_env).stdout
+    entries = {
+        line.split("\t", 1)[1]: line.split(" ", 1)[0]
+        for line in listing.splitlines()
+    }
+    assert entries == {
+        "settings.yaml": "100644",
+        "scripts/night.yaml": "100644",
+        "bin/run.sh": "100755",
+        "latest": "120000",
+    }
+    assert (
+        _git(["cat-file", "blob", "HEAD:settings.yaml"], clone, real_git_env).stdout
+        == "application:\n"
+    )
+    assert (
+        _git(["cat-file", "blob", "HEAD:latest"], clone, real_git_env).stdout
+        == "settings.yaml"
+    )
+
+
 def test_clone_uses_the_descriptor_only_url_with_environment_overrides(
     fake_ssh, target, real_git_env, tmp_path
 ):
