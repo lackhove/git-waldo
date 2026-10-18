@@ -34,3 +34,23 @@ _Avoid_: Dirty remote, conflict, divergence
 **Furniture**:
 A file tracked in the config repo that the application on the target does not read, yet deploys like any other file.
 _Avoid_: Metadata, tooling file
+
+**Remote helper**:
+The executable git invokes for a transport it cannot handle itself. git finds it as `git-remote-<scheme>`; ours is `git-remote-tarssh`.
+_Avoid_: Transport plugin, driver
+
+**Fence**:
+The `.gitignore` tracked in the config repo. It decides which target paths the tool may read or write, and it is the only thing separating synced configuration from runtime state and secrets.
+_Avoid_: Exclude list, filter, allowlist
+
+**Target descriptor**:
+The gitignored `.tarssh.toml` in the config repo, recording user, host, SSH port and directory for the target. Committed as `.tarssh.example.toml`; overridden by the remote URL, then by `TARSSH_*` variables.
+_Avoid_: Config file, settings, target config
+
+**Delta**:
+The paths added, modified or removed between the remote branch and the pushed commit. A push touches exactly these paths and nothing else.
+_Avoid_: Changeset, patch, diff
+
+**Deploy**:
+Writing a pushed commit's delta into the target's working tree.
+_Avoid_: Upload, sync down

@@ -19,3 +19,7 @@ The old sync script pushes the local worktree without knowing what the target al
 - Every commit must be built from the target's tree locally, because git must never transfer a pack: the helper writes the snapshot objects while answering `list`, advertises their real oid, and acks the subsequent `fetch` with a blank line. (The `?` reply in `gitremote-helpers(7)` means "ref value unavailable", not "object present" — see ticket 01.)
 - `.gitignore` is the only fence around secrets and runtime state, and it now travels to the target.
 - The tool must know nothing about the application; post-push verification and reloading belong to the config repo's workflow.
+
+## Correction (2026-10-18, from ticket 01)
+
+The consequence above says the helper "advertises the already-local snapshot with the `?` capability". That is wrong: `?` in `list` means *the helper could not get the value of the ref* and leaves the oid null, after which git asks for `0000…0` and fails with `bad object`. The decision stands and the mechanism is now known: the helper builds the snapshot objects in `list`, advertises the real oid, and no pack crosses the wire because the objects are already in the local object database — git skips the transport fetch via `check_exist_and_connected()`, and `git clone`, which always fetches, is acked with a blank line. Evidence: `docs/research/git-remote-helper-prior-art.md` (branch `research/prior-art`, ticket 01).

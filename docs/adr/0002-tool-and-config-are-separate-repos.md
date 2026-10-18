@@ -15,3 +15,7 @@ This repository holds both the sync tool and the mirrored config under `config/`
 - Push archives `HEAD`, not `HEAD:config`.
 - `config/.gitignore` becomes the config repo's root `.gitignore`, and its rules become the only fence around secrets and runtime state.
 - The mirror workflow documentation lives in the config repo; this repo documents the tool.
+
+## Refinement (2026-10-18, from tickets 03 and 06)
+
+"Imported as a single commit with its own workflow docs" is realized as **two** commits: the import, whose tree is byte-identical to the target, and the furniture (`AGENTS.md`, `.tarssh.example.toml`) on top. Keeping the furniture out of the import is what makes the import verifiable against the live tree, and it gives the first push a real delta to deploy. The fence (`.gitignore`) belongs to the import commit, because the target must already carry it for that equality to hold.
