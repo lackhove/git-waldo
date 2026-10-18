@@ -3,7 +3,9 @@ name = "tarssh"
 version = "0.1.0"
 description = "A git remote helper for hosts with only busybox find and tar"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pathspec>=1.1.1",
+]
 
 [project.scripts]
 git-remote-tarssh = "tarssh.remote:main"
