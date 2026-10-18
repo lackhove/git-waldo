@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `uv run pytest` runs the harness.
-- [ ] A target directory can be created, populated, emptied, removed, and made unreadable per test.
-- [ ] The helper reaches the fake target without a real network SSH connection or a live instance.
-- [ ] Any attempt to use git, rsync, SFTP, or a command or flag outside the busybox set fails the test and names the offending command.
-- [ ] The protocol driver feeds `list`, `list for-push`, `fetch`, `push`, and `option` batches, and asserts stdout lines, stderr lines, and exit codes independently.
-- [ ] SSH failure, unreadable target, missing target, and failed extraction are simulatable.
+- [x] `uv run pytest` runs the harness.
+- [x] A target directory can be created, populated, emptied, removed, and made unreadable per test.
+- [x] The helper reaches the fake target without a real network SSH connection or a live instance.
+- [x] Any attempt to use git, rsync, SFTP, or a command or flag outside the busybox set fails the test and names the offending command.
+- [x] The protocol driver feeds `list`, `list for-push`, `fetch`, `push`, and `option` batches, and asserts stdout lines, stderr lines, and exit codes independently.
+- [x] SSH failure, unreadable target, missing target, and failed extraction are simulatable.
