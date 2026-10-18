@@ -16,6 +16,6 @@ The old sync script pushes the local worktree without knowing what the target al
 
 - `git fetch <remote>`, `git log --all`, `git diff <remote>/main main`, `git push <remote> main` and `--dry-run` all work as usual; the target appears in the repository like any other remote.
 - Deletions propagate: a file removed in a pushed commit is removed on the target. Untracked and ignored files on the target survive.
-- Every commit must be built from the target's tree locally, because git must never transfer a pack; the helper advertises the already-local snapshot with the `?` capability.
+- Every commit must be built from the target's tree locally, because git must never transfer a pack: the helper writes the snapshot objects while answering `list`, advertises their real oid, and acks the subsequent `fetch` with a blank line. (The `?` reply in `gitremote-helpers(7)` means "ref value unavailable", not "object present" — see ticket 01.)
 - `.gitignore` is the only fence around secrets and runtime state, and it now travels to the target.
 - The tool must know nothing about the application; post-push verification and reloading belong to the config repo's workflow.
