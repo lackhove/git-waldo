@@ -7,6 +7,7 @@ Design: `docs/design/spec.md` (settled, traceable to ADRs and tickets). Model: `
 ## Layout
 
 - `src/tarssh/` — the helper (`uv`-managed package; entry point `git-remote-tarssh = "tarssh.remote:main"`).
+- `skills/tarssh/` — the agent skill for operating a config repo; installed per clone or per agent, not loaded from here.
 - `tests/` — protocol and target-invariant tests.
 - `docs/` — ADRs, design, agent docs. `.scratch/` — issues and specs.
 

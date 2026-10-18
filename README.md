@@ -100,6 +100,20 @@ git-remote-tarssh --version
 Git finds helpers as `git-remote-<scheme>`; the executable is
 `git-remote-tarssh`.
 
+## Agent skill
+
+`skills/tarssh/` is a self-contained skill that teaches an agent to operate a
+config repo with this tool: the loop, the fence, hard rules, and recovery. Link
+it into your agent's skill directory:
+
+```sh
+ln -s "$PWD/skills/tarssh" ~/.agents/skills/tarssh
+```
+
+For a config repo that loads project skills from `.agents/skills/`, link or
+copy it there instead. The skill defers application-specific checks to the
+config repo's own `AGENTS.md`.
+
 ## Quick start
 
 In the repository that should own the device's configuration:
