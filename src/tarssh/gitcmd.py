@@ -171,10 +171,20 @@ class GitStore:
             raise ProtocolError(f"git hash-object failed: {detail}")
         return completed.stdout.decode("utf-8", "replace").strip()
 
-    def archive(self, rev: str) -> bytes:
-        """The commit as a tar stream, ready to pipe into the target's tar."""
+    def archive(self, rev: str, paths: Iterable[str] | None = None) -> bytes:
+        """The commit, or only ``paths`` from it, as a tar stream.
+
+        Callers pass the delta in chunks: git 2.56 has no
+        ``--pathspec-from-file`` and the argv must stay below ARG_MAX.
+        """
+        args = ["archive", "--format=tar", rev]
+        if paths is not None:
+            selected = list(paths)
+            if not selected:
+                return b""
+            args.extend(["--", *selected])
         completed = subprocess.run(
-            ["git", "archive", "--format=tar", rev],
+            ["git", *args],
             capture_output=True,
             env=self._environment(),
             check=False,

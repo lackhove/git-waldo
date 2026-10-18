@@ -66,8 +66,9 @@ def test_list_for_push_is_empty_without_fabricating_an_oid(
 
 
 def test_list_for_push_advertises_the_real_remote_branch_oid(
-    make_driver, fake_ssh, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, tarssh_env, tmp_path
 ):
+    target.create()
     repo = tmp_path / "repo"
     subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
     subprocess.run(

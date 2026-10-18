@@ -150,6 +150,21 @@ class Target:
         command = f"tar -o -xf - -C {_shell_path(self.descriptor.path)}"
         return self.ssh(command, input=archive)
 
+    def remove(self, names: Iterable[str]) -> None:
+        """Delete ``./``-relative paths in one SSH call.
+
+        busybox ``rm`` has no ``--``, so every name must already be relative
+        and start with ``./``. Directories emptied by the deletion are left in
+        place; the caller chunks the list well below ARG_MAX.
+        """
+        quoted = " ".join(_shell_path(name) for name in names)
+        if not quoted:
+            return
+        command = f"cd {_shell_path(self.descriptor.path)} && rm -f {quoted}"
+        completed = self.ssh(command)
+        if completed.returncode != 0:
+            raise self.failure(completed, "delete from")
+
     def lock_path(self) -> str:
         """The lock lives outside the target so it can never become drift."""
         digest = hashlib.sha256(self.descriptor.path.encode()).hexdigest()[:16]

@@ -16,8 +16,8 @@ from tarssh import __version__
 from tarssh import descriptor as descriptor_module
 from tarssh.errors import ProtocolError
 from tarssh.gitcmd import GitStore
-from tarssh.push import push_refs
-from tarssh.snapshot import MAIN_REF, remote_ref, snapshot
+from tarssh.push import PushSession, push_refs
+from tarssh.snapshot import MAIN_REF, snapshot
 from tarssh.target import Target
 
 USAGE = "usage: git-remote-tarssh <remote> <url> | --config | --version"
@@ -115,14 +115,16 @@ def handle_list(
     remote: str,
     *,
     for_push: bool,
+    session: PushSession,
     stdout: TextIO,
 ) -> None:
     if for_push:
-        # No remote branch means branch creation: an empty advertisement. When
-        # the branch exists, advertise its real oid, never ``?``.
-        existing = store.ref(remote_ref(remote))
-        if existing is not None:
-            out(stdout, f"{existing} {MAIN_REF}")
+        # Preparation happens here: the push line carries no old oid, so the
+        # lock, snapshot and clean check must all precede the advertisement.
+        # No remote branch means branch creation: an empty advertisement.
+        session.prepare()
+        if session.expected is not None:
+            out(stdout, f"{session.expected} {MAIN_REF}")
         out(stdout)
         return
     oid = snapshot(store, target, descriptor, remote)
@@ -141,41 +143,48 @@ def command_loop(
     store: GitStore,
 ) -> int:
     dry_run = False
-    for raw in stdin:
-        line = raw.rstrip("\n")
-        if line == "":
-            continue
-        command, _, rest = line.partition(" ")
-        if command == "capabilities":
-            for capability in CAPABILITIES:
-                out(stdout, capability)
-            out(stdout)
-        elif command == "option":
-            name, _, value = rest.partition(" ")
-            if name == "dry-run":
-                dry_run = value.strip() == "true"
-            out(stdout, "ok" if name in SUPPORTED_OPTIONS else "unsupported")
-        elif command == "list":
-            handle_list(
-                store,
-                target,
-                descriptor,
-                remote,
-                for_push=rest == "for-push",
-                stdout=stdout,
-            )
-        elif command == "fetch":
-            handle_fetch(store, stdin, line, stdout)
-        elif command == "push":
-            lines = read_batch(stdin, line)
-            result = push_refs(store, target, remote, lines, dry_run=dry_run)
-            for message in result.messages:
-                err(message)
-            for status in result.statuses:
-                out(stdout, status.line())
-            out(stdout)
-        else:
-            raise ProtocolError(f"unknown protocol command: {line}")
+    session = PushSession(store, target, descriptor, remote)
+    try:
+        for raw in stdin:
+            line = raw.rstrip("\n")
+            if line == "":
+                continue
+            command, _, rest = line.partition(" ")
+            if command == "capabilities":
+                for capability in CAPABILITIES:
+                    out(stdout, capability)
+                out(stdout)
+            elif command == "option":
+                name, _, value = rest.partition(" ")
+                if name == "dry-run":
+                    dry_run = value.strip() == "true"
+                out(stdout, "ok" if name in SUPPORTED_OPTIONS else "unsupported")
+            elif command == "list":
+                handle_list(
+                    store,
+                    target,
+                    descriptor,
+                    remote,
+                    for_push=rest == "for-push",
+                    session=session,
+                    stdout=stdout,
+                )
+            elif command == "fetch":
+                handle_fetch(store, stdin, line, stdout)
+            elif command == "push":
+                lines = read_batch(stdin, line)
+                result = push_refs(session, lines, dry_run=dry_run)
+                for message in result.messages:
+                    err(message)
+                for status in result.statuses:
+                    out(stdout, status.line())
+                out(stdout)
+            else:
+                raise ProtocolError(f"unknown protocol command: {line}")
+    finally:
+        # Holds the lock across list-for-push -> push; git may never send the
+        # push batch at all.
+        session.close()
     return 0
 
 
