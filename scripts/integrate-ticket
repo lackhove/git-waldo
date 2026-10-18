@@ -1,0 +1,17 @@
+#!/bin/sh
+# Merge one ticket branch into the integration branch and run the full check.
+set -eu
+
+cd "$(dirname "$0")/.."
+
+branch=${1:?usage: scripts/integrate-ticket <branch> [message]}
+message=${2:-"Merge $branch"}
+
+if ! git rev-parse --verify --quiet "$branch^{commit}" >/dev/null; then
+    echo "integrate-ticket: no such branch: $branch" >&2
+    exit 2
+fi
+
+git merge --no-ff "$branch" -m "$message"
+scripts/check
+printf 'integrated %s at %s\n' "$branch" "$(git rev-parse --short HEAD)"
