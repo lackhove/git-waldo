@@ -12,6 +12,8 @@ Design: `docs/design/spec.md` (settled, traceable to ADRs and tickets). Model: `
 
 The config repo is separate; it holds the deployed files and the `target` remote. Its own documentation covers the workflow.
 
+Cutover to a live target: `docs/agents/cutover.md` (the drift gate comes before `merge -s ours`).
+
 ## Transport facts (do not relearn these the hard way)
 
 - The target has no git, no rsync, no SFTP. Only `find`, `tar`, `rm`, `mkdir`, `xargs`, `sha1sum`.
