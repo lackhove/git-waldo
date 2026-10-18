@@ -1,0 +1,236 @@
+"""Resolve the target descriptor: ``TARSSH_*`` > URL > ``.tarssh.toml`` > defaults.
+
+The four layers describe one target. Each field is resolved independently so a
+one-off override (``TARSSH_SSH_PORT=22222``) can combine with a committed host
+and directory.
+"""
+
+from __future__ import annotations
+
+import getpass
+import os
+import subprocess
+import tomllib
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+from tarssh.errors import ProtocolError
+
+TOML_NAME = ".tarssh.toml"
+DEFAULT_PORT = 22
+ENV_FIELDS = {
+    "user": "TARSSH_USER",
+    "host": "TARSSH_HOST",
+    "ssh_port": "TARSSH_SSH_PORT",
+    "dir": "TARSSH_DIR",
+}
+
+
+@dataclass(frozen=True)
+class UrlTarget:
+    """The fields a ``tarssh://`` URL carries explicitly."""
+
+    user: str | None
+    host: str
+    port: int | None
+    path: str | None
+
+
+@dataclass(frozen=True)
+class Descriptor:
+    """A fully resolved target."""
+
+    user: str
+    host: str
+    port: int
+    path: str
+    url: str
+
+    def label(self) -> str:
+        return f"{self.user}@{self.host}:{self.port}:{self.path}"
+
+
+@dataclass(frozen=True)
+class Resolved:
+    descriptor: Descriptor
+    warnings: tuple[str, ...]
+
+
+def parse_remote_url(url: str) -> UrlTarget | None:
+    """Parse ``tarssh://`` or the descriptor-only ``tarssh::`` form.
+
+    A bare ``tarssh:`` is not a helper URL: git parses it as scp-like syntax and
+    tries to SSH to a host called ``tarssh``. We refuse it rather than guessing.
+    """
+    if url in ("", "tarssh::"):
+        return None
+    if not url.startswith("tarssh://"):
+        raise ProtocolError(
+            f"not a tarssh helper URL: {url!r} (use tarssh://... or tarssh::)"
+        )
+
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        port = parts.port
+    except ValueError as error:
+        raise ProtocolError(f"invalid URL {url}: {error}") from error
+    if parts.scheme != "tarssh":
+        raise ProtocolError(f"unsupported URL scheme in {url!r}")
+    if not host:
+        raise ProtocolError(f"missing host in URL: {url}")
+    path = unquote(parts.path)
+    if not path:
+        raise ProtocolError(f"missing absolute target path in URL: {url}")
+    if not path.startswith("/"):
+        raise ProtocolError(f"target path is not absolute in URL {url}: {path!r}")
+    user = unquote(parts.username) if parts.username else None
+    return UrlTarget(user=user, host=host, port=port, path=path)
+
+
+def _git_output(args: list[str], cwd: Path | None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def repository_root(cwd: Path | None = None) -> Path | None:
+    """The config repo root, found with git, never inferred from the cwd."""
+    completed = _git_output(["rev-parse", "--show-toplevel"], cwd)
+    if completed.returncode != 0:
+        return None
+    root = completed.stdout.strip()
+    return Path(root) if root else None
+
+
+def read_toml(root: Path) -> tuple[dict[str, object], Path | None]:
+    """Read the committed descriptor. Missing is not an error."""
+    path = root / TOML_NAME
+    if not path.is_file():
+        return {}, None
+    try:
+        with path.open("rb") as handle:
+            data = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise ProtocolError(f"cannot read {path}: {error}") from error
+
+    fields: dict[str, object] = {}
+    for key in ("user", "host", "dir"):
+        value = data.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise ProtocolError(f"{path}: {key} must be a string")
+        fields[key] = value
+    port = data.get("ssh_port")
+    if port is not None:
+        if not isinstance(port, int) or isinstance(port, bool):
+            raise ProtocolError(f"{path}: ssh_port must be an integer")
+        fields["ssh_port"] = port
+    return fields, path
+
+
+def _environment(environ: Mapping[str, str] | None) -> Mapping[str, str]:
+    return os.environ if environ is None else environ
+
+
+def _value(mapping: Mapping[str, str], name: str) -> str | None:
+    value = mapping.get(name)
+    return value if value else None
+
+
+def _port(value: str, url: str) -> int:
+    try:
+        port = int(value)
+    except ValueError as error:
+        raise ProtocolError(f"invalid SSH port {value!r} for {url}") from error
+    if not 1 <= port <= 65535:
+        raise ProtocolError(f"invalid SSH port {value!r} for {url}")
+    return port
+
+
+def _local_username() -> str:
+    try:
+        return getpass.getuser()
+    except OSError:  # pragma: no cover - exotic environments without a passwd entry
+        return "root"
+
+
+def _warn(warnings: list[str], field: str, url_value: object, file_value: object) -> None:
+    if url_value is not None and file_value is not None and url_value != file_value:
+        warnings.append(
+            f"using {field} {url_value} from the remote URL; "
+            f"{TOML_NAME} says {file_value}"
+        )
+
+
+def resolve(
+    url: str,
+    *,
+    environ: Mapping[str, str] | None = None,
+    cwd: Path | None = None,
+) -> Resolved:
+    """Resolve every field of the target for one helper invocation."""
+    parsed = parse_remote_url(url)
+    shown_url = url or "tarssh::"
+    fields, _ = read_toml(root) if (root := repository_root(cwd)) else ({}, None)
+    env = _environment(environ)
+    warnings: list[str] = []
+
+    url_user = parsed.user if parsed else None
+    url_host = parsed.host if parsed else None
+    url_port = parsed.port if parsed else None
+    url_path = parsed.path if parsed else None
+
+    _warn(warnings, "user", url_user, fields.get("user"))
+    _warn(warnings, "host", url_host, fields.get("host"))
+    _warn(warnings, "ssh_port", url_port, fields.get("ssh_port"))
+    _warn(warnings, "dir", url_path, fields.get("dir"))
+
+    env_user = _value(env, ENV_FIELDS["user"])
+    env_host = _value(env, ENV_FIELDS["host"])
+    env_port = _value(env, ENV_FIELDS["ssh_port"])
+    env_dir = _value(env, ENV_FIELDS["dir"])
+
+    host = env_host or url_host or fields.get("host")
+    if not host:
+        raise ProtocolError(
+            f"no target host: set TARSSH_HOST, use tarssh://host/..., "
+            f"or add host to {TOML_NAME} (URL: {shown_url})"
+        )
+
+    user = env_user or url_user or fields.get("user") or _local_username()
+
+    if env_port is not None:
+        port = _port(env_port, shown_url)
+    elif url_port is not None:
+        port = url_port
+    elif fields.get("ssh_port") is not None:
+        port = int(fields["ssh_port"])
+    else:
+        port = DEFAULT_PORT
+
+    path = env_dir or url_path or fields.get("dir")
+    if not path:
+        raise ProtocolError(
+            f"no target directory: set TARSSH_DIR or {TOML_NAME} (URL: {shown_url})"
+        )
+    if not path.startswith("/"):
+        raise ProtocolError(
+            f"target directory is not absolute: {path!r} (URL: {shown_url})"
+        )
+
+    descriptor = Descriptor(
+        user=str(user),
+        host=str(host),
+        port=port,
+        path=str(path),
+        url=shown_url,
+    )
+    return Resolved(descriptor=descriptor, warnings=tuple(warnings))
