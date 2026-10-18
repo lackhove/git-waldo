@@ -1,0 +1,8 @@
+# This repo's own tooling.
+__pycache__/
+*.pyc
+.venv/
+.agents/
+.claude/
+.pi/
+skills-lock.json
