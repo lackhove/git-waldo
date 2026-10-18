@@ -12,6 +12,7 @@ git-remote-tarssh = "tarssh.remote:main"
 
 [dependency-groups]
 dev = [
+    "mypy>=1.10",
     "pytest>=8.0",
     "ruff>=0.6",
 ]
@@ -33,4 +34,33 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = ["ALL"]
+ignore = [
+    "E501",   # line too long (formatter owns wrapping)
+    "D",      # missing docstring
+    "ANN204", # missing return annotation for __init__
+    "ANN002", # missing annotation for *args
+    "ANN003", # missing annotation for **kwargs
+    "S311",   # non-cryptographic random
+    "S603",   # subprocess without shell=True
+    "TD",     # flake8-todos
+    "FIX",    # flake8-fixme
+    "COM812", "ISC001", # ruff format conflicts
+    "TRY003", # long messages outside exception class
+    "EM102",  # f-string in exception
+    "CPY001", # this repo has no copyright-header policy
+    "S607",   # PATH lookup of git/ssh is intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101", "T201", "FBT001",
+    "ANN001", "ANN201", "ANN202",
+    "INP001", "PLR2004", "PLR0913", "PLR0917",
+    "ARG001", "ARG002", "SLF001",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+files = ["src"]

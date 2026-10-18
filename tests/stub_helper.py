@@ -33,12 +33,12 @@ def read_batch(stream) -> list[str]:
 
 
 def parse_destination(refspec: str) -> str:
-    if refspec.startswith("+") or refspec.startswith(":"):
+    if refspec.startswith(("+", ":")):
         return refspec.lstrip("+").split(":", 1)[-1]
     return refspec.split(":", 1)[-1]
 
 
-def main() -> int:
+def main() -> int:  # noqa: C901  # tiny protocol stub exercises every command
     mode = os.environ.get("STUB_HELPER_MODE", "normal")
     oid = os.environ.get("STUB_OID", DEFAULT_OID)
 
@@ -59,7 +59,7 @@ def main() -> int:
             out("push")
             out("option")
             out("")
-        elif line == "list" or line == "list for-push":
+        elif line in {"list", "list for-push"}:
             out("@refs/heads/main HEAD")
             out(f"{oid} refs/heads/main")
             out("")

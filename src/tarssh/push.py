@@ -16,16 +16,24 @@ from __future__ import annotations
 import re
 import sys
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from tarssh.descriptor import Descriptor
 from tarssh.errors import ProtocolError
-from tarssh.gitcmd import GitStore
 from tarssh.snapshot import MAIN_REF, remote_ref, snapshot
-from tarssh.target import Target
+
+if TYPE_CHECKING:
+    from tarssh.descriptor import Descriptor
+    from tarssh.gitcmd import GitStore
+    from tarssh.target import Target
 
 #: Keep every remote command comfortably below ARG_MAX.
 CHUNK = 500
 DRIFT_LIMIT = 10
+
+
+def _err(message: str) -> None:
+    sys.stderr.write(f"git-remote-tarssh: {message}\n")
+    sys.stderr.flush()
 
 
 @dataclass(frozen=True)
@@ -72,9 +80,7 @@ def parse_refspec(line: str) -> Refspec:
     return Refspec(src=src, dst=dst, force=force, deletion=deletion)
 
 
-def _diff_entries(
-    store: GitStore, old: str, new: str
-) -> list[tuple[str, str]]:
+def _diff_entries(store: GitStore, old: str, new: str) -> list[tuple[str, str]]:
     """``(status, path)`` pairs from ``git diff-tree``, in diff order."""
     raw = store.run("diff-tree", "-r", "--name-status", "-z", old, new).stdout
     fields = raw.split("\0")
@@ -189,7 +195,7 @@ class PushSession:
         try:
             self.target.release_lock(lock)
         except ProtocolError as error:
-            print(f"git-remote-tarssh: {error}", file=sys.stderr, flush=True)
+            _err(str(error))
 
 
 def _is_ancestor(store: GitStore, old: str, new: str) -> bool:
@@ -228,11 +234,7 @@ def _apply(
             message = str(error)
             failed = [path for path in paths if _names_path(message, path)] or paths
             for path in failed:
-                print(
-                    f"git-remote-tarssh: cannot delete {path} from target",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                _err(f"cannot delete {path} from target")
             raise
 
 
@@ -268,7 +270,8 @@ def _deploy(
     else:
         expected = session.expected
         if expected is None:
-            raise AssertionError("a prepared session has either created or expected")
+            message = "a prepared session has either created or expected"
+            raise AssertionError(message)
         delta = _delta(store, expected, commit)
     if not dry_run:
         _apply(store, target, commit, delta, created=session.created)
@@ -315,9 +318,7 @@ def push_refs(
             statuses.append(RefStatus(refspec.dst, "non-fast forward"))
             continue
 
-        delta = _deploy(
-            store, session.target, session, refspec.src, dry_run=dry_run
-        )
+        delta = _deploy(store, session.target, session, refspec.src, dry_run=dry_run)
         if delta.count:
             messages.append(
                 f"deploying {delta.count} changes to {label}: "

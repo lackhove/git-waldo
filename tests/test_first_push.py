@@ -33,8 +33,7 @@ def test_first_push_to_a_missing_target_creates_it_and_deploys_head(
     assert deploy_message(target, 2, 0) in completed.stderr
     assert f"mkdir -p {target.path}" in [call.command for call in fake_ssh.calls]
     assert (
-        git(["rev-parse", "--abbrev-ref", "main@{upstream}"], repo, real_git_env)
-        .stdout.strip()
+        git(["rev-parse", "--abbrev-ref", "main@{upstream}"], repo, real_git_env).stdout.strip()
         == "target/main"
     )
 
@@ -55,9 +54,7 @@ def test_first_push_to_a_missing_or_empty_target(
     assert deploy_message(target, 2, 0) in completed.stderr
 
 
-def test_first_push_updates_the_remote_branch_locally(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_first_push_updates_the_remote_branch_locally(fake_ssh, target, real_git_env, tmp_path):
     repo = make_repo(tmp_path, real_git_env, CONFIG_FILES)
     git(["remote", "add", "target", fake_ssh.url], repo, real_git_env)
     head = git(["rev-parse", "HEAD"], repo, real_git_env).stdout.strip()
@@ -65,10 +62,7 @@ def test_first_push_updates_the_remote_branch_locally(
     completed = push(repo, real_git_env, "-u")
 
     assert completed.returncode == 0, completed.stderr
-    assert (
-        git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
-        == head
-    )
+    assert git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip() == head
 
 
 def test_dry_run_reports_the_same_counts_and_writes_nothing(
@@ -84,9 +78,7 @@ def test_dry_run_reports_the_same_counts_and_writes_nothing(
     commands = [call.command for call in fake_ssh.calls]
     assert f"mkdir {lock_path(target)}" in commands
     assert f"rm -rf {lock_path(target)}" in commands
-    assert not any(
-        command.startswith(("mkdir -p ", "tar ")) for command in commands
-    )
+    assert not any(command.startswith(("mkdir -p ", "tar ")) for command in commands)
     assert not target.path.exists()
     assert not lock_path(target).exists()
 
@@ -130,9 +122,7 @@ def test_a_first_push_of_an_empty_commit_reports_already_up_to_date(
     assert target_tree(target) == {}
 
 
-def test_deploy_extracts_with_target_side_ownership(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_deploy_extracts_with_target_side_ownership(fake_ssh, target, real_git_env, tmp_path):
     repo = make_repo(tmp_path, real_git_env, CONFIG_FILES)
     git(["remote", "add", "target", fake_ssh.url], repo, real_git_env)
 
@@ -158,17 +148,13 @@ def test_the_lock_is_taken_before_deployment_and_released_afterwards(
     commands = [call.command for call in fake_ssh.calls]
     taken = commands.index(f"mkdir {lock}")
     created = commands.index(f"mkdir -p {target.path}")
-    extracted = next(
-        index for index, command in enumerate(commands) if command.startswith("tar ")
-    )
+    extracted = next(index for index, command in enumerate(commands) if command.startswith("tar "))
     assert taken < created < extracted
     assert f"rm -rf {lock}" in commands
     assert not lock.exists()
 
 
-def test_a_failed_extraction_still_releases_the_lock(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_a_failed_extraction_still_releases_the_lock(fake_ssh, target, real_git_env, tmp_path):
     repo = make_repo(tmp_path, real_git_env, CONFIG_FILES)
     git(["remote", "add", "target", fake_ssh.url], repo, real_git_env)
     fake_ssh.fail_extraction()

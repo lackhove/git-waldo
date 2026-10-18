@@ -87,16 +87,14 @@ def test_extraction_failure_is_simulatable(fake_ssh, target):
     target.populate({"a.txt": "x"})
     fake_ssh.fail_extraction()
 
-    result = fake_ssh.run_remote(f"tar -o -xf - -C {_quote(target.path)}", input="")
+    result = fake_ssh.run_remote(f"tar -o -xf - -C {_quote(target.path)}", data="")
 
     assert result.returncode != 0
     assert "extract" in result.stderr.lower()
     assert any(item.kind == "extraction" for item in fake_ssh.failures)
 
 
-def test_removal_failure_is_simulatable_without_breaking_the_lock_release(
-    fake_ssh, target
-):
+def test_removal_failure_is_simulatable_without_breaking_the_lock_release(fake_ssh, target):
     target.populate({"a.txt": "x"})
     fake_ssh.fail_removal()
 

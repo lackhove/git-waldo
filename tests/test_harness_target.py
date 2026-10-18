@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 
 def test_target_can_be_created_populated_read_and_removed(target):
     target.create()
@@ -33,6 +31,6 @@ def test_target_can_make_a_path_unreadable_and_restore_it(target):
 
     target.make_unreadable("secret.yaml")
 
-    assert os.stat(target.path / "secret.yaml").st_mode & 0o777 == 0
+    assert (target.path / "secret.yaml").stat().st_mode & 0o777 == 0
     target.restore()
     assert target.read_text("secret.yaml") == "token: hunter2\n"

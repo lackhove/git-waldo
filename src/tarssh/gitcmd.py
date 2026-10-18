@@ -12,10 +12,13 @@ import os
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tarssh.errors import ProtocolError
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 IDENT = {
     "GIT_AUTHOR_NAME": "tarssh",
@@ -25,9 +28,7 @@ IDENT = {
 }
 
 
-def git_output(
-    args: list[str], cwd: Path | None = None
-) -> subprocess.CompletedProcess[str]:
+def git_output(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run one git command, separating the caller's own failure handling."""
     return subprocess.run(
         ["git", *args],
@@ -54,8 +55,7 @@ class GitStore:
             object_format = git_output(["rev-parse", "--show-object-format"], cwd)
             if object_format.returncode != 0:
                 raise ProtocolError(
-                    f"cannot determine the repository object format: "
-                    f"{object_format.stderr.strip()}"
+                    f"cannot determine the repository object format: {object_format.stderr.strip()}"
                 )
             found = object_format.stdout.strip()
             if found != "sha1":
@@ -72,9 +72,7 @@ class GitStore:
         )
         if init.returncode != 0:
             shutil.rmtree(directory, ignore_errors=True)
-            raise ProtocolError(
-                f"cannot create a temporary object store: {init.stderr.strip()}"
-            )
+            raise ProtocolError(f"cannot create a temporary object store: {init.stderr.strip()}")
         return cls(directory, temporary=True)
 
     def close(self) -> None:
@@ -93,14 +91,14 @@ class GitStore:
     def run(
         self,
         *args: str,
-        input: str | bytes | None = None,
+        data: str | bytes | None = None,
         env: Mapping[str, str] | None = None,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         completed = subprocess.run(
             ["git", *args],
-            input=input,
-            text=isinstance(input, str) or input is None,
+            input=data,
+            text=isinstance(data, str) or data is None,
             capture_output=True,
             env=self._environment(env),
             check=False,
@@ -138,9 +136,7 @@ class GitStore:
         return completed.stdout
 
     def has_commit(self, oid: str) -> bool:
-        completed = self.run(
-            "rev-parse", "--verify", "--quiet", f"{oid}^{{commit}}", check=False
-        )
+        completed = self.run("rev-parse", "--verify", "--quiet", f"{oid}^{{commit}}", check=False)
         return completed.returncode == 0
 
     def write_tree(self, entries: Iterable[tuple[str, str, str]] = ()) -> str:

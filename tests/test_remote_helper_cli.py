@@ -7,18 +7,19 @@ import subprocess
 import sys
 import tomllib
 from importlib.metadata import entry_points, version
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 import tarssh
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 TOML_NAME = ".tarssh.toml"
 
 
-def _run(
-    *args: str, cwd: Path | None = None, stdin: str = ""
-) -> subprocess.CompletedProcess[str]:
+def _run(*args: str, cwd: Path | None = None, stdin: str = "") -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "tarssh.remote", *args],
         input=stdin,
@@ -36,9 +37,7 @@ def _repo(tmp_path: Path) -> Path:
 
 
 def _git(repo: Path, *args: str) -> str:
-    completed = subprocess.run(
-        ["git", *args], cwd=repo, text=True, capture_output=True, check=True
-    )
+    completed = subprocess.run(["git", *args], cwd=repo, text=True, capture_output=True, check=True)
     return completed.stdout.strip()
 
 
@@ -53,16 +52,35 @@ def test_version_verb_prints_the_tool_version():
 def test_unknown_verb_fails_clearly_instead_of_becoming_a_remote():
     completed = _run("--no-such-verb")
 
-    assert completed.returncode != 0
+    assert completed.returncode == 2
     assert "--no-such-verb" in completed.stderr
+    assert "usage" in completed.stderr.lower()
     assert completed.stdout == ""
 
 
 def test_helper_mode_without_a_url_fails_clearly():
     completed = _run("origin")
 
-    assert completed.returncode != 0
+    assert completed.returncode == 2
     assert "url" in completed.stderr.lower()
+    assert "usage" in completed.stderr.lower()
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("--version", "extra"),
+        ("--config", "extra"),
+        ("origin", "tarssh::", "extra"),
+        ("-",),
+    ],
+)
+def test_extra_arguments_exit_2_with_usage(args):
+    completed = _run(*args)
+
+    assert completed.returncode == 2
+    assert "usage" in completed.stderr.lower()
+    assert completed.stdout == ""
 
 
 def test_the_installed_console_script_points_at_the_helper():
@@ -117,9 +135,7 @@ def test_config_writes_the_descriptor_at_the_repo_root_from_a_subdirectory(tmp_p
 def test_config_offers_the_local_user_and_port_22_as_defaults(tmp_path):
     repo = _repo(tmp_path)
 
-    completed = _run(
-        "--config", cwd=repo, stdin="\nexample.test\n\n/srv/config\n"
-    )
+    completed = _run("--config", cwd=repo, stdin="\nexample.test\n\n/srv/config\n")
 
     assert completed.returncode == 0, completed.stderr
     descriptor = tomllib.loads((repo / TOML_NAME).read_text(encoding="utf-8"))
@@ -197,9 +213,7 @@ def test_config_overwrites_after_confirmation_using_existing_values_as_defaults(
 def test_config_leaves_an_existing_target_remote_untouched_and_says_so(tmp_path):
     repo = _repo(tmp_path)
     existing = "tarssh://user@elsewhere:2222/srv/config"
-    subprocess.run(
-        ["git", "remote", "add", "target", existing], cwd=repo, check=True
-    )
+    subprocess.run(["git", "remote", "add", "target", existing], cwd=repo, check=True)
 
     completed = _run(
         "--config",

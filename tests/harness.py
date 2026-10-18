@@ -15,9 +15,12 @@ import shutil
 import stat
 import subprocess
 import sys
-from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 #: Commands the target host may run. Shell builtins are provided by its shell.
 BUSYBOX_COMMANDS = ("find", "tar", "rm", "mkdir", "xargs", "sha1sum")
@@ -204,24 +207,23 @@ class FakeSSH:
             body = (
                 "#!/bin/sh\n"
                 f"exec {shlex.quote(sys.executable)} {shlex.quote(str(guard))} "
-                f"{name} \"$@\"\n"
+                f'{name} "$@"\n'
             )
             self._write_script(self.target_bin / name, body)
 
     def _install_client_commands(self) -> None:
         fake = Path(__file__).with_name("fake_ssh.py")
         launcher = f"exec {shlex.quote(sys.executable)} {shlex.quote(str(fake))}"
-        self._write_script(self.client_bin / "ssh", f"#!/bin/sh\n{launcher} \"$@\"\n")
+        self._write_script(self.client_bin / "ssh", f'#!/bin/sh\n{launcher} "$@"\n')
         for tool in ("scp", "sftp", "rsync"):
             self._write_script(
                 self.client_bin / tool,
-                f"#!/bin/sh\n{launcher} --fake-tool {tool} \"$@\"\n",
+                f'#!/bin/sh\n{launcher} --fake-tool {tool} "$@"\n',
             )
         remote_shim = Path(__file__).with_name("remote_shim.py")
         self._write_script(
             self.client_bin / "git-remote-tarssh",
-            f"#!/bin/sh\nexec {shlex.quote(sys.executable)} "
-            f"{shlex.quote(str(remote_shim))} \"$@\"\n",
+            f'#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(remote_shim))} "$@"\n',
         )
 
     def _write_remote_shell(self) -> None:
@@ -232,11 +234,11 @@ class FakeSSH:
             hook = (
                 "command_not_found_handle() {\n"
                 f"  {shlex.quote(sys.executable)} {shlex.quote(str(guard))} "
-                "--forbidden \"$1\"\n"
+                '--forbidden "$1"\n'
                 "  return 127\n"
                 "}\n"
             )
-        body = f"#!{shell}\n{hook}readonly PATH\neval \"$FAKE_SSH_COMMAND\"\n"
+        body = f'#!{shell}\n{hook}readonly PATH\neval "$FAKE_SSH_COMMAND"\n'
         self._write_script(self.workdir / "remote-shell.sh", body)
 
     def env(self, extra: Mapping[str, str] | None = None) -> dict[str, str]:
@@ -252,12 +254,12 @@ class FakeSSH:
         return environment
 
     def run_ssh(
-        self, *args: str, input: str | bytes | None = None
+        self, *args: str, data: str | bytes | None = None
     ) -> subprocess.CompletedProcess[str]:
-        data = input.encode() if isinstance(input, str) else input
+        payload = data.encode() if isinstance(data, str) else data
         completed = subprocess.run(
             [str(self.client_bin / "ssh"), *args],
-            input=data,
+            input=payload,
             capture_output=True,
             env=self.env(),
             check=False,
@@ -270,9 +272,9 @@ class FakeSSH:
         )
 
     def run_remote(
-        self, command: str, input: str | bytes | None = None
+        self, command: str, data: str | bytes | None = None
     ) -> subprocess.CompletedProcess[str]:
-        return self.run_ssh(self.host, command, input=input)
+        return self.run_ssh(self.host, command, data=data)
 
     def run_client(self, tool: str, *args: str) -> subprocess.CompletedProcess[str]:
         completed = subprocess.run(

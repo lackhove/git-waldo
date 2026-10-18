@@ -53,14 +53,10 @@ def test_a_push_deletes_a_removed_path(fake_ssh, target, real_git_env, tmp_path)
     assert completed.returncode == 0, completed.stderr
     assert not target.exists("a.txt")
     assert deploy_message(target, 0, 1) in completed.stderr
-    assert any(
-        call.command.endswith("rm -f ./a.txt") for call in fake_ssh.calls
-    )
+    assert any(call.command.endswith("rm -f ./a.txt") for call in fake_ssh.calls)
 
 
-def test_a_combined_delta_writes_and_deletes_exactly_once(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_a_combined_delta_writes_and_deletes_exactly_once(fake_ssh, target, real_git_env, tmp_path):
     repo = make_pushed_repo(
         fake_ssh,
         tmp_path,
@@ -84,21 +80,15 @@ def test_a_combined_delta_writes_and_deletes_exactly_once(
     assert target_tree(target) == head_tree(repo, real_git_env)
     assert deploy_message(target, 2, 1) in completed.stderr
     extractions = [
-        call.command
-        for call in fake_ssh.calls[before:]
-        if call.command.startswith("tar -o -xf")
+        call.command for call in fake_ssh.calls[before:] if call.command.startswith("tar -o -xf")
     ]
-    removals = [
-        call.command for call in fake_ssh.calls[before:] if " rm -f " in call.command
-    ]
+    removals = [call.command for call in fake_ssh.calls[before:] if " rm -f " in call.command]
     assert len(extractions) == 1
     assert len(removals) == 1
     assert removals[0].endswith("rm -f ./delete.txt")
 
 
-def test_an_empty_delta_reports_already_up_to_date(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_an_empty_delta_reports_already_up_to_date(fake_ssh, target, real_git_env, tmp_path):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
     git(
         ["commit", "-q", "--allow-empty", "-m", "empty"],
@@ -150,9 +140,7 @@ def test_ignored_target_files_survive_a_delta_and_do_not_cause_drift(
     assert target.read_text("a.txt") == "changed\n"
 
 
-def test_directories_emptied_by_a_deletion_stay(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_directories_emptied_by_a_deletion_stay(fake_ssh, target, real_git_env, tmp_path):
     repo = make_pushed_repo(
         fake_ssh,
         tmp_path,
@@ -204,9 +192,7 @@ def test_a_non_fast_forward_push_sends_gits_rejection_token(
     make_driver, fake_ssh, target, real_git_env, tarssh_env, tmp_path
 ):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
-    expected = git(
-        ["rev-parse", "refs/remotes/target/main"], repo, real_git_env
-    ).stdout.strip()
+    expected = git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
     tree = git(["rev-parse", "HEAD^{tree}"], repo, real_git_env).stdout.strip()
     unrelated = git(
         ["commit-tree", tree, "-m", "unrelated"],
@@ -234,9 +220,7 @@ def test_a_non_fast_forward_push_sends_gits_rejection_token(
     assert target_tree(target) == before
 
 
-def test_dry_run_simulates_the_delta_and_writes_nothing(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_dry_run_simulates_the_delta_and_writes_nothing(fake_ssh, target, real_git_env, tmp_path):
     repo = make_pushed_repo(
         fake_ssh,
         tmp_path,
@@ -278,9 +262,7 @@ def test_the_lock_is_held_from_list_for_push_through_the_deploy(
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
     (repo / "a.txt").write_text("changed\n", encoding="utf-8")
     commit(repo, real_git_env)
-    remote_oid = git(
-        ["rev-parse", "refs/remotes/target/main"], repo, real_git_env
-    ).stdout.strip()
+    remote_oid = git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
     head = git(["rev-parse", "HEAD"], repo, real_git_env).stdout.strip()
     calls_before = len(fake_ssh.calls)
 
@@ -309,9 +291,7 @@ def test_the_lock_is_held_from_list_for_push_through_the_deploy(
         if command.startswith(f"cd {target.path} && find .")
     )
     extracted = next(
-        index
-        for index, command in enumerate(commands)
-        if command.startswith("tar -o -xf")
+        index for index, command in enumerate(commands) if command.startswith("tar -o -xf")
     )
     released = commands.index(f"rm -rf {lock}")
     assert taken < read < extracted < released
@@ -358,9 +338,7 @@ def test_the_helper_never_writes_the_remote_branch(
     make_driver, fake_ssh, target, real_git_env, tarssh_env, tmp_path
 ):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
-    remote_oid = git(
-        ["rev-parse", "refs/remotes/target/main"], repo, real_git_env
-    ).stdout.strip()
+    remote_oid = git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
     (repo / "a.txt").write_text("changed\n", encoding="utf-8")
     commit(repo, real_git_env)
     head = git(["rev-parse", "HEAD"], repo, real_git_env).stdout.strip()
@@ -374,9 +352,7 @@ def test_the_helper_never_writes_the_remote_branch(
     ).run("list for-push", "push refs/heads/main:refs/heads/main", "")
 
     result.assert_exit(0)
-    result.assert_stdout_lines(
-        f"{remote_oid} refs/heads/main", "", "ok refs/heads/main", ""
-    )
+    result.assert_stdout_lines(f"{remote_oid} refs/heads/main", "", "ok refs/heads/main", "")
     assert (
         git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
         == remote_oid
@@ -385,9 +361,7 @@ def test_the_helper_never_writes_the_remote_branch(
     assert target_tree(target) == head_tree(repo, real_git_env)
 
 
-def test_added_paths_are_archived_in_chunks_below_arg_max(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_added_paths_are_archived_in_chunks_below_arg_max(fake_ssh, target, real_git_env, tmp_path):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
     for index in range(501):
         path = repo / f"bulk/file-{index:03d}.txt"
@@ -401,9 +375,7 @@ def test_added_paths_are_archived_in_chunks_below_arg_max(
     assert completed.returncode == 0, completed.stderr
     assert deploy_message(target, 501, 0) in completed.stderr
     extractions = [
-        call
-        for call in fake_ssh.calls[calls_before:]
-        if call.command.startswith("tar -o -xf")
+        call for call in fake_ssh.calls[calls_before:] if call.command.startswith("tar -o -xf")
     ]
     assert len(extractions) == 2
     assert target.read_text("bulk/file-500.txt") == "500\n"
@@ -427,9 +399,7 @@ def test_deleted_paths_are_removed_in_chunks_below_arg_max(
 
     assert completed.returncode == 0, completed.stderr
     assert deploy_message(target, 0, 501) in completed.stderr
-    removals = [
-        call for call in fake_ssh.calls[calls_before:] if " rm -f " in call.command
-    ]
+    removals = [call for call in fake_ssh.calls[calls_before:] if " rm -f " in call.command]
     assert len(removals) == 2
     assert not target.exists("bulk/file-000.txt")
     assert (target.path / "bulk").is_dir()

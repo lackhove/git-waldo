@@ -37,7 +37,8 @@ SSH_OPTIONS_WITH_VALUE = {"F", "i", "l", "o", "p"}
 def load_state() -> dict:
     path = os.environ.get("FAKE_SSH_STATE")
     if not path:
-        raise SystemExit("fake-ssh: FAKE_SSH_STATE is not set")
+        message = "fake-ssh: FAKE_SSH_STATE is not set"
+        raise SystemExit(message)
     return json.loads(Path(path).read_text())
 
 
@@ -53,7 +54,9 @@ def refuse(state: dict, reason: str, returncode: int = 127) -> int:
     return returncode
 
 
-def parse_ssh(argv: list[str]) -> tuple[str, str | None, int, bool, list[str]]:
+def parse_ssh(  # noqa: C901, PLR0912, PLR0915  # mirrors busybox/OpenSSH option forms
+    argv: list[str],
+) -> tuple[str, str | None, int, bool, list[str]]:
     """Return destination host, user, port, subsystem flag and command argv."""
     host: str | None = None
     user: str | None = None
@@ -68,7 +71,8 @@ def parse_ssh(argv: list[str]) -> tuple[str, str | None, int, bool, list[str]]:
         if arg == "--":
             index += 1
             if index >= len(argv):
-                raise ValueError("ssh: -- without a destination")
+                message = "ssh: -- without a destination"
+                raise ValueError(message)
             host = argv[index]
             index += 1
             continue
@@ -113,7 +117,8 @@ def parse_ssh(argv: list[str]) -> tuple[str, str | None, int, bool, list[str]]:
         raise ValueError(f"ssh: option not supported by the fake target: {arg}")
 
     if host is None:
-        raise ValueError("ssh: no destination host")
+        message = "ssh: no destination host"
+        raise ValueError(message)
     return host, user, port, subsystem, []
 
 

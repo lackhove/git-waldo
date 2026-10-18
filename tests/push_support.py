@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import getpass
-import os
 import subprocess
 from pathlib import Path
 
@@ -81,7 +80,7 @@ def target_tree(target):
     for path in sorted(target.path.rglob("*")):
         relative = path.relative_to(target.path).as_posix()
         if path.is_symlink():
-            entries[relative] = ("120000", os.readlink(path).encode())
+            entries[relative] = ("120000", path.readlink().as_posix().encode())
         elif path.is_file():
             mode = "100755" if path.stat().st_mode & 0o111 else "100644"
             entries[relative] = (mode, path.read_bytes())
@@ -97,9 +96,7 @@ def make_pushed_repo(fake_ssh, tmp_path, env, files=None):
 
 
 def lock_path(target):
-    descriptor = Descriptor(
-        user="test", host="fake-target", port=22, path=str(target.path), url=""
-    )
+    descriptor = Descriptor(user="test", host="fake-target", port=22, path=str(target.path), url="")
     return Path(RemoteTarget(descriptor).lock_path())
 
 

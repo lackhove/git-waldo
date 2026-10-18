@@ -5,9 +5,12 @@ from __future__ import annotations
 import getpass
 import subprocess
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 TOML_NAME = ".tarssh.toml"
 
@@ -106,9 +109,7 @@ def test_user_and_port_default_when_nothing_supplies_them(
 ):
     target.create()
 
-    result = _driver(
-        make_driver, tmp_path, f"tarssh://fake-target{target.path}", tarssh_env
-    ).list()
+    result = _driver(make_driver, tmp_path, f"tarssh://fake-target{target.path}", tarssh_env).list()
 
     result.assert_exit(0)
     call = fake_ssh.calls[-1]
@@ -202,9 +203,7 @@ def test_a_relative_directory_from_toml_is_refused_naming_the_url(
     assert "not absolute" in result.stderr
 
 
-def test_a_url_without_a_path_is_refused_naming_the_url(
-    make_driver, tarssh_env, tmp_path
-):
+def test_a_url_without_a_path_is_refused_naming_the_url(make_driver, tarssh_env, tmp_path):
     url = "tarssh://fake-target"
 
     result = _driver(make_driver, tmp_path, url, tarssh_env).list()
@@ -214,9 +213,7 @@ def test_a_url_without_a_path_is_refused_naming_the_url(
     assert url in result.stderr
 
 
-def test_a_bare_tarssh_colon_is_not_a_helper_url(
-    make_driver, tarssh_env, tmp_path
-):
+def test_a_bare_tarssh_colon_is_not_a_helper_url(make_driver, tarssh_env, tmp_path):
     result = _driver(make_driver, tmp_path, "tarssh:", tarssh_env).list()
 
     assert result.exit_code != 0
@@ -230,13 +227,9 @@ def test_a_full_url_works_outside_a_repository_and_ignores_a_stray_toml(
 ):
     target.create()
     # This file is in the cwd, not at a repository root. It must not be read.
-    (tmp_path / TOML_NAME).write_text(
-        'host = "stray-host"\ndir = "/stray/dir"\n', encoding="utf-8"
-    )
+    (tmp_path / TOML_NAME).write_text('host = "stray-host"\ndir = "/stray/dir"\n', encoding="utf-8")
 
-    result = _driver(
-        make_driver, tmp_path, f"tarssh://fake-target{target.path}", tarssh_env
-    ).list()
+    result = _driver(make_driver, tmp_path, f"tarssh://fake-target{target.path}", tarssh_env).list()
 
     result.assert_exit(0)
     result.assert_stderr_empty()

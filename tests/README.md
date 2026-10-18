@@ -23,10 +23,11 @@ the test, so the same harness serves both the stub helper and the real
 
 ```python
 def test_list(driver, stub_oid):
-    result = driver.list()          # also .list(for_push=True), .fetch(), .push(), .option()
+    result = driver.list()  # also .list(for_push=True), .fetch(), .push(), .option()
     result.assert_exit(0)
     result.assert_stdout_lines("@refs/heads/main HEAD", f"{stub_oid} refs/heads/main", "")
     result.assert_stderr_empty()
+
 
 def test_real_helper(make_driver):
     driver = make_driver([sys.executable, "-m", "tarssh.remote"])
