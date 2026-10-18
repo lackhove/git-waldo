@@ -9,7 +9,7 @@ the test, so the same harness serves the stub in ticket 01 and the real
 | fixture | what it gives you |
 |---|---|
 | `target` | `Target` at a temp path; `create()`, `populate({...})`, `empty()`, `remove()`, `make_unreadable()`, `restore()`, `read()`, `write()`, `symlink()`, `url()` |
-| `fake_ssh` | `FakeSSH`; `env()`, `url`, `run_remote()`, `run_ssh()`, `run_client()`, `calls`, `forbidden`, `failures`, `fail_connection()`, `fail_extraction()`, `restore()` |
+| `fake_ssh` | `FakeSSH`; `env()`, `url`, `run_remote()`, `run_ssh()`, `run_client()`, `calls`, `forbidden`, `failures`, `fail_connection()`, `fail_extraction()`, `fail_removal()`, `restore()` |
 | `make_driver` | builds a `ProtocolDriver` for any argv; defaults to the stub helper |
 | `driver` | `ProtocolDriver` for `tests/stub_helper.py` |
 | `helper_env` | `os.environ` with the fake SSH shim first on `PATH` |

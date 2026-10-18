@@ -6,9 +6,9 @@ told the remote branch has. The ``push`` batch then either rejects the ref
 (drift, non-fast-forward, unsupported refspec) or streams exactly the delta
 between the remote branch and the pushed commit into the target.
 
-Ticket 06 owns the remaining rejection vocabulary (force, deletion, other
-destinations, stale-lock detail); :func:`parse_refspec` keeps that information
-so it can be filled in there.
+Ref-level refusals use git's exact status vocabulary: force pushes, branch
+deletions, and every destination other than ``refs/heads/main``. They are
+results, not transport errors, so the helper still exits zero.
 """
 
 from __future__ import annotations
@@ -26,12 +26,10 @@ from tarssh.target import Target
 CHUNK = 500
 DRIFT_LIMIT = 10
 
-OTHER_REFSPEC_NOT_IMPLEMENTED = "only first pushes of refs/heads/main are implemented"
-
 
 @dataclass(frozen=True)
 class Refspec:
-    """One parsed ``push`` line, including the facts ticket 06 will report on."""
+    """One parsed ``push`` line, including the facts its rejection reports on."""
 
     src: str
     dst: str
@@ -40,9 +38,17 @@ class Refspec:
 
     @property
     def problem(self) -> str:
-        """The rejection for a refspec this build must not act on."""
-        if self.force or self.deletion or not self.src or self.dst != MAIN_REF:
-            return OTHER_REFSPEC_NOT_IMPLEMENTED
+        """The rejection for a refspec this build must not act on.
+
+        Precedence is part of the outcome: a forced deletion of another
+        branch reports force first, then deletion, then the destination.
+        """
+        if self.force:
+            return "force pushes are not supported"
+        if self.deletion:
+            return "deleting branches is not supported"
+        if self.dst != MAIN_REF:
+            return "only refs/heads/main is deployed"
         return ""
 
 
@@ -57,8 +63,12 @@ def parse_refspec(line: str) -> Refspec:
     src, separator, dst = spec.partition(":")
     if not separator:
         src = dst = spec
+    else:
+        dst = dst or src
+    if not src and not dst:
+        raise ProtocolError(f"malformed push line: {line!r}")
     deletion = not src
-    return Refspec(src=src, dst=dst or src, force=force, deletion=deletion)
+    return Refspec(src=src, dst=dst, force=force, deletion=deletion)
 
 
 def _changed_paths(store: GitStore, old: str, new: str) -> list[str]:
@@ -200,7 +210,19 @@ def _apply(
         if completed.returncode != 0:
             raise target.failure(completed, "deploy to")
     for start in range(0, len(delta.deleted), CHUNK):
-        target.remove(f"./{path}" for path in delta.deleted[start : start + CHUNK])
+        paths = delta.deleted[start : start + CHUNK]
+        try:
+            target.remove(f"./{path}" for path in paths)
+        except ProtocolError:
+            # There is no per-file protocol from busybox rm, so name every
+            # path in the refused chunk; the transport error follows.
+            for path in paths:
+                print(
+                    f"git-remote-tarssh: cannot delete {path} from target",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            raise
 
 
 @dataclass(frozen=True)

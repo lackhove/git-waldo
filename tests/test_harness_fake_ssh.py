@@ -94,6 +94,23 @@ def test_extraction_failure_is_simulatable(fake_ssh, target):
     assert any(item.kind == "extraction" for item in fake_ssh.failures)
 
 
+def test_removal_failure_is_simulatable_without_breaking_the_lock_release(
+    fake_ssh, target
+):
+    target.populate({"a.txt": "x"})
+    fake_ssh.fail_removal()
+
+    failed = fake_ssh.run_remote(f"cd {_quote(target.path)} && rm -f ./a.txt")
+
+    assert failed.returncode != 0
+    assert "deletion failed" in failed.stderr
+    assert any(item.kind == "removal" for item in fake_ssh.failures)
+    assert target.exists("a.txt")
+
+    released = fake_ssh.run_remote(f"rm -rf {_quote(target.path)}/lock")
+    assert released.returncode == 0
+
+
 def test_missing_target_fails_in_the_target_command(fake_ssh):
     target = fake_ssh.target
     target.remove()
