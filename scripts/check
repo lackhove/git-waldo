@@ -1,0 +1,10 @@
+#!/bin/sh
+# The repo's whole check: tests, types, lint and formatting.
+set -eu
+
+cd "$(dirname "$0")/.."
+
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy
+uv run pytest

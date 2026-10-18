@@ -22,7 +22,8 @@ The config repo is separate; it holds the deployed files and the `target` remote
 
 ## Working on it
 
-- `uv run pytest`, `uv run ruff check .`
+- `scripts/check` — pytest, mypy, ruff check, ruff format --check.
+- `uv run pre-commit install` once per clone; commits run the fast checks, pushes run `scripts/check`.
 - Test against a fake target over localhost, never against a live instance, except for the explicit end-to-end check in the config repo.
 - Every change that alters the protocol, the snapshot shape or the push order needs a ticket under `.scratch/` and, if it contradicts an ADR, an ADR correction rather than a silent override.
 

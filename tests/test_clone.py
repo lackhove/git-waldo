@@ -68,10 +68,7 @@ def test_clone_of_a_populated_target_records_its_files(fake_ssh, target, real_gi
         _git(["cat-file", "blob", "HEAD:settings.yaml"], clone, real_git_env).stdout
         == "application:\n"
     )
-    assert (
-        _git(["cat-file", "blob", "HEAD:latest"], clone, real_git_env).stdout
-        == "settings.yaml"
-    )
+    assert _git(["cat-file", "blob", "HEAD:latest"], clone, real_git_env).stdout == "settings.yaml"
 
 
 def test_clone_of_a_non_empty_target_uses_its_gitignore_as_the_fallback_fence(
