@@ -306,6 +306,78 @@ def test_a_negation_cannot_reinclude_a_file_under_an_ignored_directory(
     assert {path.decode() for path in tree} == {".gitignore", "visible.txt"}
 
 
+def _git_ignores(repo, name, env):
+    """Ask git itself whether ``name`` is ignored by the tree's fence."""
+    completed = _git(
+        repo,
+        "check-ignore",
+        "--no-index",
+        "-q",
+        "--",
+        name,
+        env=env,
+        check=False,
+    )
+    assert completed.returncode in (0, 1), completed.stderr
+    return completed.returncode == 0
+
+
+def test_fence_semantics_match_git_check_ignore(
+    make_driver, fake_ssh, target, tarssh_env, tmp_path
+):
+    """Use git as the oracle for directory pruning and negations."""
+    fence = """\
+*
+!.gitignore
+!visible.txt
+!keep/
+!keep/**
+!nested/
+!nested/**
+build/
+!build/keep.txt
+runtime/
+!.gitignore
+nested/*.log
+!nested/important.log
+"""
+    candidates = (
+        ".gitignore",
+        "visible.txt",
+        "other.txt",
+        "keep/a.txt",
+        "keep/sub/b.txt",
+        "build/keep.txt",
+        "runtime/.gitignore",
+        "runtime/state.json",
+        "nested/important.log",
+        "nested/other.log",
+    )
+    target.create()
+    target.write(".gitignore", fence.encode())
+    for name in candidates:
+        if name != ".gitignore":
+            target.write(name, b"content\n")
+
+    repo = _init_repo(tmp_path, tarssh_env)
+    (repo / ".gitignore").write_text(fence, encoding="utf-8")
+    base = _base_commit(repo, tarssh_env, fence)
+    _git(repo, "update-ref", "refs/heads/main", base, env=tarssh_env)
+
+    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    actual = {path.decode() for path in _ls_tree(repo, _oid(result), tarssh_env)}
+    expected = {
+        name
+        for name in candidates
+        if name == ".gitignore" or not _git_ignores(repo, name, tarssh_env)
+    }
+
+    assert actual == expected
+    assert "nested/important.log" in actual
+    assert "runtime/.gitignore" not in actual
+    assert "build/keep.txt" not in actual
+
+
 def test_a_changed_target_is_parented_on_the_existing_remote_branch(
     make_driver, fake_ssh, target, tarssh_env, tmp_path
 ):
