@@ -2,7 +2,7 @@
 
 A git remote helper. It makes an SSH host with **no git** — only busybox `find` and `tar` — a normal git remote: `git fetch` records the host's directory as a snapshot commit, `git merge` merges it, `git push` deploys the commit delta. The tool knows nothing about any particular application; it is generic.
 
-Design: `docs/design/spec.md` (settled, traceable to ADRs and tickets). Model: `docs/adr/0001-target-is-a-git-remote.md`. Split: `docs/adr/0002-tool-and-config-are-separate-repos.md`. Vocabulary: `GLOSSARY.md`.
+Design: `docs/design/spec.md` (settled, traceable to ADRs and tickets). Model: `docs/adr/0001-target-is-a-git-remote.md`. Split: `docs/adr/0002-tool-and-config-are-separate-repos.md`. Vocabulary: `GLOSSARY.md`. Git-side protocol facts: `docs/agents/git-helper-protocol.md`.
 
 ## Layout
 
