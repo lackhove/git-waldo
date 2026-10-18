@@ -71,3 +71,26 @@ def driver(make_driver):
 def git_env(fake_ssh, stub_command):
     """Environment for real git: ``git-remote-tarssh`` resolves to the stub."""
     return fake_ssh.env({"TARSSH_HELPER": shlex.join(stub_command)})
+
+
+@pytest.fixture
+def real_helper():
+    """Argv that runs the ticket 02 helper module."""
+    return [sys.executable, "-m", "tarssh.remote"]
+
+
+@pytest.fixture
+def tarssh_env(fake_ssh):
+    """The fake SSH environment with every ``TARSSH_*`` override removed."""
+    environment = fake_ssh.env()
+    for name in ("TARSSH_USER", "TARSSH_HOST", "TARSSH_SSH_PORT", "TARSSH_DIR"):
+        environment.pop(name, None)
+    return environment
+
+
+@pytest.fixture
+def real_git_env(fake_ssh, tarssh_env):
+    """Environment for real git with the real helper discoverable on PATH."""
+    environment = dict(tarssh_env)
+    environment["TARSSH_HELPER"] = "module:tarssh.remote"
+    return environment

@@ -5,6 +5,9 @@ description = "A git remote helper for hosts with only busybox find and tar"
 requires-python = ">=3.11"
 dependencies = []
 
+[project.scripts]
+git-remote-tarssh = "tarssh.remote:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",

@@ -15,6 +15,9 @@ the test, so the same harness serves the stub in ticket 01 and the real
 | `helper_env` | `os.environ` with the fake SSH shim first on `PATH` |
 | `git_env` | `helper_env` plus `TARSSH_HELPER`, for real `git` commands |
 | `stub_command` / `stub_oid` | the stub helper argv and the oid it advertises |
+| `real_helper` | argv for the real helper: `python -m tarssh.remote` |
+| `tarssh_env` | `fake_ssh.env()` with every `TARSSH_*` override removed |
+| `real_git_env` | `tarssh_env` plus `TARSSH_HELPER=module:tarssh.remote` |
 
 ## Using it
 
