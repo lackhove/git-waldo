@@ -14,6 +14,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TextIO
 from urllib.parse import unquote, urlsplit
 
 from tarssh.errors import ProtocolError
@@ -234,3 +235,97 @@ def resolve(
         url=shown_url,
     )
     return Resolved(descriptor=descriptor, warnings=tuple(warnings))
+
+
+def _prompt(
+    stdin: TextIO, stdout: TextIO, label: str, default: str | None
+) -> str:
+    """Ask once for one field; an empty answer keeps the offered default."""
+    shown = f" [{default}]" if default else ""
+    stdout.write(f"{label}{shown}: ")
+    stdout.flush()
+    line = stdin.readline()
+    if line == "":
+        if default is not None:
+            return default
+        raise ProtocolError(f"no value for {label}: stdin was closed")
+    value = line.strip()
+    return value if value else (default or "")
+
+
+def _confirm(stdin: TextIO, stdout: TextIO, path: Path) -> None:
+    stdout.write(f"{path} already exists; overwrite? [y/N]: ")
+    stdout.flush()
+    answer = stdin.readline().strip().lower()
+    if answer not in ("y", "yes"):
+        raise ProtocolError(f"{path} not overwritten")
+
+
+def _toml_string(value: str) -> str:
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _existing(fields: Mapping[str, object], name: str, kind: type) -> object | None:
+    value = fields.get(name)
+    return value if isinstance(value, kind) else None
+
+
+def write_descriptor(root: Path, *, stdin: TextIO, stdout: TextIO) -> Path:
+    """Interactively write ``.tarssh.toml`` at the config repo root.
+
+    Prompts go to ``stdout`` (the caller passes stderr) and answers are read
+    line by line, so piped stdin drives the same code path as a terminal.
+    Existing values become the offered defaults; refusing to overwrite aborts
+    before anything is written.
+    """
+    path = root / TOML_NAME
+    fields, _ = read_toml(root)
+    if path.exists():
+        _confirm(stdin, stdout, path)
+
+    existing_user = _existing(fields, "user", str)
+    existing_host = _existing(fields, "host", str)
+    existing_port = _existing(fields, "ssh_port", int)
+    existing_dir = _existing(fields, "dir", str)
+
+    user = _prompt(
+        stdin,
+        stdout,
+        "user",
+        str(existing_user) if existing_user is not None else _local_username(),
+    )
+    host = _prompt(
+        stdin, stdout, "host", str(existing_host) if existing_host is not None else None
+    )
+    if not host:
+        raise ProtocolError("host must not be empty")
+
+    port_text = _prompt(
+        stdin,
+        stdout,
+        "ssh_port",
+        str(existing_port if existing_port is not None else DEFAULT_PORT),
+    )
+    port = _port(port_text, str(path))
+
+    target_dir = _prompt(
+        stdin, stdout, "dir", str(existing_dir) if existing_dir is not None else None
+    )
+    if not target_dir:
+        raise ProtocolError("dir must not be empty")
+    if not target_dir.startswith("/"):
+        raise ProtocolError(f"dir must be an absolute path: {target_dir!r}")
+
+    content = "\n".join(
+        (
+            f"user = {_toml_string(user)}",
+            f"host = {_toml_string(host)}",
+            f"ssh_port = {port}",
+            f"dir = {_toml_string(target_dir)}",
+        )
+    )
+    try:
+        path.write_text(content + "\n", encoding="utf-8")
+    except OSError as error:
+        raise ProtocolError(f"cannot write {path}: {error}") from error
+    return path

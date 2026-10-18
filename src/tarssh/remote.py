@@ -6,8 +6,10 @@ is git's remote-helper protocol (``<remote> <url>``).
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import TextIO
 
 from tarssh import __version__
@@ -17,7 +19,7 @@ from tarssh.gitcmd import GitStore
 from tarssh.snapshot import MAIN_REF, snapshot
 from tarssh.target import Target
 
-USAGE = "usage: git-remote-tarssh <remote> <url> | --version"
+USAGE = "usage: git-remote-tarssh <remote> <url> | --config | --version"
 
 #: Options git may ask about. ticket 02 has no push, so ``push`` is absent from
 #: the advertised capabilities even though the option vocabulary is real.
@@ -33,14 +35,49 @@ def err(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
 
 
+def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args], cwd=root, text=True, capture_output=True, check=False
+    )
+
+
+def ensure_target_remote(root: Path) -> None:
+    """Register ``target`` as ``tarssh::`` unless it already exists."""
+    existing = _git(root, "remote", "get-url", "target")
+    if existing.returncode == 0:
+        err(
+            f"git-remote-tarssh: target remote already exists "
+            f"({existing.stdout.strip()}); left untouched"
+        )
+        return
+
+    added = _git(root, "remote", "add", "target", "tarssh::")
+    if added.returncode != 0:
+        detail = (added.stderr or added.stdout).strip()
+        raise ProtocolError(f"cannot add the target remote: {detail}")
+    err("git-remote-tarssh: added target remote tarssh::")
+
+
+def config_mode() -> int:
+    root = descriptor_module.repository_root()
+    if root is None:
+        raise ProtocolError(
+            "--config must run inside a git repository: "
+            "git rev-parse --show-toplevel failed"
+        )
+    path = descriptor_module.write_descriptor(root, stdin=sys.stdin, stdout=sys.stderr)
+    err(f"git-remote-tarssh: wrote {path}")
+    ensure_target_remote(root)
+    return 0
+
+
 def tool_mode(argv: Sequence[str]) -> int:
     verb = argv[0]
     if verb == "--version":
         print(f"tarssh {__version__}")
         return 0
     if verb == "--config":
-        err("git-remote-tarssh: --config is not implemented yet")
-        return 2
+        return config_mode()
     err(f"git-remote-tarssh: unknown option: {verb}")
     err(USAGE)
     return 2
