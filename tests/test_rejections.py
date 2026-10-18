@@ -114,9 +114,7 @@ def test_a_malformed_push_line_is_still_a_protocol_error(
     assert not lock_path(target).exists()
 
 
-def test_a_force_push_through_git_is_remote_rejected(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_a_force_push_through_git_is_remote_rejected(fake_ssh, target, real_git_env, tmp_path):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
     (repo / "a.txt").write_text("changed\n", encoding="utf-8")
     commit(repo, real_git_env)
@@ -194,9 +192,7 @@ def test_a_stale_lock_is_reported_by_its_full_path_and_left_in_place(
     before = target_tree(target)
     calls_before = len(fake_ssh.calls)
     try:
-        result = helper_driver(
-            make_driver, fake_ssh, real_git_env, repo
-        ).list(for_push=True)
+        result = helper_driver(make_driver, fake_ssh, real_git_env, repo).list(for_push=True)
 
         result.assert_exit(1)
         result.assert_stdout_empty()
@@ -214,12 +210,8 @@ def test_a_stale_lock_is_reported_by_its_full_path_and_left_in_place(
 def test_a_failed_extraction_releases_the_lock_and_the_half_state_blocks_push(
     fake_ssh, target, real_git_env, tmp_path
 ):
-    repo = make_pushed_repo(
-        fake_ssh, tmp_path, real_git_env, {"a.txt": (b"alpha\n", 0o644)}
-    )
-    remote_oid = git(
-        ["rev-parse", "refs/remotes/target/main"], repo, real_git_env
-    ).stdout.strip()
+    repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env, {"a.txt": (b"alpha\n", 0o644)})
+    remote_oid = git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
     (repo / "a.txt").write_text("beta\n", encoding="utf-8")
     commit(repo, real_git_env)
     fake_ssh.fail_extraction()
@@ -279,9 +271,7 @@ def test_a_failed_deletion_releases_the_lock_and_names_each_path(
             "b.txt": (b"beta\n", 0o644),
         },
     )
-    remote_oid = git(
-        ["rev-parse", "refs/remotes/target/main"], repo, real_git_env
-    ).stdout.strip()
+    remote_oid = git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
     (repo / "a.txt").unlink()
     (repo / "b.txt").unlink()
     commit(repo, real_git_env)
@@ -335,9 +325,6 @@ def test_a_failed_deletion_names_only_the_paths_the_target_reports(
 
     assert failed.returncode != 0
     assert "git-remote-tarssh: cannot delete a.txt from target" in failed.stderr
-    assert (
-        "git-remote-tarssh: cannot delete a.txt.bak from target"
-        not in failed.stderr
-    )
+    assert "git-remote-tarssh: cannot delete a.txt.bak from target" not in failed.stderr
     assert "cannot delete from target" in failed.stderr
     assert not lock_path(target).exists()

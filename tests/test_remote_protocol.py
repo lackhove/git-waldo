@@ -17,9 +17,7 @@ def _driver(make_driver, tmp_path, url, env, cwd=None):
     )
 
 
-def test_capabilities_are_sent_only_in_response_to_git(
-    make_driver, fake_ssh, tarssh_env, tmp_path
-):
+def test_capabilities_are_sent_only_in_response_to_git(make_driver, fake_ssh, tarssh_env, tmp_path):
     silent = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env).run_input("")
 
     silent.assert_exit(0)
@@ -27,9 +25,7 @@ def test_capabilities_are_sent_only_in_response_to_git(
     silent.assert_stderr_empty()
 
 
-def test_capabilities_are_fetch_push_and_option(
-    make_driver, fake_ssh, tarssh_env, tmp_path
-):
+def test_capabilities_are_fetch_push_and_option(make_driver, fake_ssh, tarssh_env, tmp_path):
     result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env).capabilities()
 
     result.assert_exit(0)
@@ -46,9 +42,7 @@ def test_supported_options_answer_ok(make_driver, fake_ssh, tarssh_env, tmp_path
 
 
 @pytest.mark.parametrize("name", ["progress", "cas"])
-def test_unsupported_options_answer_unsupported(
-    make_driver, fake_ssh, tarssh_env, tmp_path, name
-):
+def test_unsupported_options_answer_unsupported(make_driver, fake_ssh, tarssh_env, tmp_path, name):
     result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env).option(name, "false")
 
     result.assert_exit(0)
@@ -93,9 +87,7 @@ def test_list_for_push_advertises_the_real_remote_branch_oid(
         check=True,
     )
 
-    result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env, cwd=repo).list(
-        for_push=True
-    )
+    result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env, cwd=repo).list(for_push=True)
 
     result.assert_exit(0)
     result.assert_stdout_lines(f"{head} refs/heads/main", "")
@@ -120,9 +112,7 @@ def test_fetch_verifies_a_real_local_oid_and_prints_one_blank_line(
     result.assert_stderr_empty()
 
 
-def test_fetch_of_an_absent_oid_fails_loudly(
-    make_driver, fake_ssh, tarssh_env, tmp_path
-):
+def test_fetch_of_an_absent_oid_fails_loudly(make_driver, fake_ssh, tarssh_env, tmp_path):
     oid = "0" * 40
     result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env).fetch(
         f"{oid} refs/heads/main"
@@ -133,9 +123,7 @@ def test_fetch_of_an_absent_oid_fails_loudly(
     assert oid in result.stderr
 
 
-def test_an_unknown_protocol_command_fails_loudly(
-    make_driver, fake_ssh, tarssh_env, tmp_path
-):
+def test_an_unknown_protocol_command_fails_loudly(make_driver, fake_ssh, tarssh_env, tmp_path):
     result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env).run("bogus")
 
     assert result.exit_code != 0

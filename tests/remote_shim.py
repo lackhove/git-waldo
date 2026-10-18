@@ -29,7 +29,7 @@ def main() -> int:
         print("git-remote-tarssh: TARSSH_HELPER is empty", file=sys.stderr)
         return 127
     try:
-        os.execv(command[0], [*command, *sys.argv[1:]])
+        os.execv(command[0], [*command, *sys.argv[1:]])  # noqa: S606  # selected helper
     except OSError as error:
         print(f"git-remote-tarssh: cannot run {command[0]}: {error}", file=sys.stderr)
         return 127

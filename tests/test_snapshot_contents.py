@@ -18,12 +18,12 @@ IDENT = {
 }
 
 
-def _git(repo, *args, env=None, input=None, check=True):
-    data = input.encode() if isinstance(input, str) else input
+def _git(repo, *args, env=None, data=None, check=True):
+    payload = data.encode() if isinstance(data, str) else data
     completed = subprocess.run(
         ["git", *args],
         cwd=repo,
-        input=data,
+        input=payload,
         capture_output=True,
         env=env,
         check=False,
@@ -92,21 +92,25 @@ def _commit_objects(repo, env):
 
 
 def _base_commit(repo, env, fence: str):
-    blob = _git(repo, "hash-object", "-w", "--stdin", env=env, input=fence.encode())
+    blob = _git(repo, "hash-object", "-w", "--stdin", env=env, data=fence.encode())
     tree = _git(
         repo,
         "mktree",
         env=env,
-        input=f"100644 blob {blob.stdout.strip().decode()}\t.gitignore\n",
+        data=f"100644 blob {blob.stdout.strip().decode()}\t.gitignore\n",
     )
-    return _git(
-        repo,
-        "commit-tree",
-        tree.stdout.strip().decode(),
-        "-m",
-        "base",
-        env={**env, **IDENT},
-    ).stdout.strip().decode()
+    return (
+        _git(
+            repo,
+            "commit-tree",
+            tree.stdout.strip().decode(),
+            "-m",
+            "base",
+            env={**env, **IDENT},
+        )
+        .stdout.strip()
+        .decode()
+    )
 
 
 def test_snapshot_carries_files_across_directories_symlinks_and_modes(
@@ -151,11 +155,11 @@ def test_snapshot_carries_files_across_directories_symlinks_and_modes(
     assert _blob(repo, tree[b"bin/run.sh"][1], tarssh_env) == b"#!/bin/sh\nexit 0\n"
     assert (
         _blob(repo, tree[b"current"][1], tarssh_env)
-        == os.readlink(target.path / "current").encode()
+        == (target.path / "current").readlink().as_posix().encode()
     )
     assert (
         _blob(repo, tree[b"scripts-link"][1], tarssh_env)
-        == os.readlink(target.path / "scripts-link").encode()
+        == (target.path / "scripts-link").readlink().as_posix().encode()
     )
     assert all(b"empty" not in path for path in tree)
     assert fake_ssh.forbidden == []
@@ -192,9 +196,10 @@ def test_target_gitignore_is_the_fence_only_when_no_local_fence_exists(
     second = _list(make_driver, fake_ssh.url, tarssh_env, repo)
 
     assert _oid(second) == oid
-    assert _git(
-        repo, "rev-parse", "refs/remotes/origin/main", env=tarssh_env
-    ).stdout.strip().decode() == oid
+    assert (
+        _git(repo, "rev-parse", "refs/remotes/origin/main", env=tarssh_env).stdout.strip().decode()
+        == oid
+    )
     assert _commit_objects(repo, tarssh_env) == commits
 
 
@@ -322,9 +327,7 @@ def test_a_changed_target_is_parented_on_the_existing_remote_branch(
     }
 
 
-def test_empty_directories_are_ignored(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
-):
+def test_empty_directories_are_ignored(make_driver, fake_ssh, target, tarssh_env, tmp_path):
     target.create()
     target.mkdir("empty")
     target.mkdir("empty/deeper")
@@ -333,9 +336,7 @@ def test_empty_directories_are_ignored(
 
     result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
 
-    assert {path.decode() for path in _ls_tree(repo, _oid(result), tarssh_env)} == {
-        "file.txt"
-    }
+    assert {path.decode() for path in _ls_tree(repo, _oid(result), tarssh_env)} == {"file.txt"}
 
 
 def _assert_refused(make_driver, fake_ssh, tarssh_env, repo, expected):
@@ -346,9 +347,7 @@ def _assert_refused(make_driver, fake_ssh, tarssh_env, repo, expected):
     assert "cannot represent target path" in result.stderr
 
 
-def test_a_fifo_is_refused_by_name(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
-):
+def test_a_fifo_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n"})
     os.mkfifo(target.path / "pipe")
@@ -357,9 +356,7 @@ def test_a_fifo_is_refused_by_name(
     _assert_refused(make_driver, fake_ssh, tarssh_env, repo, "pipe")
 
 
-def test_a_socket_is_refused_by_name(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
-):
+def test_a_socket_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n"})
     server = socket.socket(socket.AF_UNIX)
@@ -371,9 +368,7 @@ def test_a_socket_is_refused_by_name(
         server.close()
 
 
-def test_a_device_node_is_refused_by_name(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
-):
+def test_a_device_node_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n"})
     try:
@@ -386,9 +381,7 @@ def test_a_device_node_is_refused_by_name(
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permission bits")
-def test_an_unreadable_file_is_refused_by_name(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
-):
+def test_an_unreadable_file_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n", "secret.txt": b"secret\n"})
     target.make_unreadable("secret.txt")
@@ -401,9 +394,7 @@ def test_an_unreadable_file_is_refused_by_name(
     assert "secret.txt" in result.stderr
 
 
-def test_a_non_utf8_name_is_refused_by_name(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
-):
+def test_a_non_utf8_name_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n"})
     raw_name = b"bad-\xff.txt"

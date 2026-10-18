@@ -10,11 +10,15 @@ from __future__ import annotations
 import hashlib
 import shlex
 import subprocess
-from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from tarssh.descriptor import Descriptor
 from tarssh.errors import ProtocolError
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from tarssh.descriptor import Descriptor
 
 
 def _detail(text: str | bytes) -> str:
@@ -45,14 +49,14 @@ class Target:
         self,
         command: str,
         *,
-        input: str | bytes | None = None,
+        data: str | bytes | None = None,
     ) -> subprocess.CompletedProcess[bytes]:
         """Run one remote shell command and keep its streams as bytes.
 
         Byte streams matter: ``find -print0`` and ``tar`` carry file names and
         file content, neither of which is guaranteed to be UTF-8.
         """
-        data = input.encode() if isinstance(input, str) else input
+        payload = data.encode() if isinstance(data, str) else data
         argv = [
             self.ssh_command,
             "-o",
@@ -66,7 +70,7 @@ class Target:
         ]
         return subprocess.run(
             argv,
-            input=data,
+            input=payload,
             capture_output=True,
             check=False,
         )
@@ -75,10 +79,10 @@ class Target:
         self,
         command: str,
         *,
-        input: str | bytes | None = None,
+        data: str | bytes | None = None,
     ) -> subprocess.CompletedProcess[str]:
         """Same as :meth:`run`, decoded for commands that only print text."""
-        completed = self.run(command, input=input)
+        completed = self.run(command, data=data)
         return subprocess.CompletedProcess(
             completed.args,
             completed.returncode,
@@ -86,11 +90,14 @@ class Target:
             completed.stderr.decode("utf-8", "replace"),
         )
 
-    def failure(self, completed: subprocess.CompletedProcess, action: str) -> ProtocolError:
+    def failure(
+        self,
+        completed: subprocess.CompletedProcess[bytes] | subprocess.CompletedProcess[str],
+        action: str,
+    ) -> ProtocolError:
         detail = _detail(completed.stderr) or f"ssh exited {completed.returncode}"
         return ProtocolError(
-            f"cannot {action} target {self.descriptor.path} "
-            f"at {self.descriptor.url}: {detail}"
+            f"cannot {action} target {self.descriptor.path} at {self.descriptor.url}: {detail}"
         )
 
     def check(self) -> None:
@@ -101,10 +108,7 @@ class Target:
             raise self.failure(completed, "read")
 
     def _find(self, expression: str, action: str) -> list[bytes]:
-        command = (
-            f"cd {_shell_path(self.descriptor.path)} && "
-            f"find . {expression} -print0"
-        )
+        command = f"cd {_shell_path(self.descriptor.path)} && find . {expression} -print0"
         completed = self.run(command)
         if completed.returncode != 0:
             raise self.failure(completed, action)
@@ -120,15 +124,11 @@ class Target:
 
     def archive(self, names: Iterable[bytes | str]) -> bytes:
         """Tar the named ``./``-relative paths to stdout, without recursion."""
-        payload = b"\n".join(
-            name.encode() if isinstance(name, str) else name for name in names
-        )
+        payload = b"\n".join(name.encode() if isinstance(name, str) else name for name in names)
         if not payload:
             return b""
-        command = (
-            f"cd {_shell_path(self.descriptor.path)} && tar -cf - -T -"
-        )
-        completed = self.run(command, input=payload + b"\n")
+        command = f"cd {_shell_path(self.descriptor.path)} && tar -cf - -T -"
+        completed = self.run(command, data=payload + b"\n")
         if completed.returncode != 0:
             raise self.failure(completed, "read")
         return completed.stdout
@@ -139,14 +139,14 @@ class Target:
         if completed.returncode != 0:
             raise self.failure(completed, "create")
 
-    def extract(self, archive: bytes) -> subprocess.CompletedProcess:
+    def extract(self, archive: bytes) -> subprocess.CompletedProcess[str]:
         """Unpack a tar stream into the target.
 
         ``-o`` keeps ownership with the target-side user instead of restoring
         the client's numeric uid, which would be meaningless on the far side.
         """
         command = f"tar -o -xf - -C {_shell_path(self.descriptor.path)}"
-        return self.ssh(command, input=archive)
+        return self.ssh(command, data=archive)
 
     def remove(self, names: Iterable[str]) -> None:
         """Delete ``./``-relative paths in one SSH call.
@@ -166,7 +166,7 @@ class Target:
     def lock_path(self) -> str:
         """The lock lives outside the target so it can never become drift."""
         digest = hashlib.sha256(self.descriptor.path.encode()).hexdigest()[:16]
-        return f"/tmp/tarssh-{digest}.lock"
+        return f"/tmp/tarssh-{digest}.lock"  # noqa: S108  # intentional: never drift
 
     def acquire_lock(self) -> str:
         path = self.lock_path()

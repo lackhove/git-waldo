@@ -5,15 +5,19 @@ from __future__ import annotations
 import io
 import os
 import tarfile
-from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from pathspec import GitIgnoreSpec
 
-from tarssh.descriptor import Descriptor
 from tarssh.errors import ProtocolError
-from tarssh.gitcmd import GitStore
-from tarssh.target import Target
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from tarssh.descriptor import Descriptor
+    from tarssh.gitcmd import GitStore
+    from tarssh.target import Target
 
 MAIN_REF = "refs/heads/main"
 GITIGNORE = ".gitignore"
@@ -43,8 +47,7 @@ def _name_of(raw: bytes, *, role: str = "target path") -> str:
     except UnicodeDecodeError as error:
         shown = raw.decode("utf-8", "backslashreplace")
         raise ProtocolError(f"{role} is not valid UTF-8: {shown}") from error
-    if name.startswith("./"):
-        name = name[2:]
+    name = name.removeprefix("./")
     if not name or name == "." or name.startswith("/") or "\0" in name or "\n" in name:
         raise ProtocolError(f"cannot represent {role}: {name!r}")
     return name
@@ -71,9 +74,7 @@ def _parse_archive(data: bytes, expected: set[str]) -> dict[str, _Archived]:
                     raw_name = member.name.encode("utf-8", "surrogateescape")
                 name = _name_of(raw_name, role=f"target path {raw_name!r}")
                 if name not in expected:
-                    raise ProtocolError(
-                        f"tar returned an unexpected target path: {name!r}"
-                    )
+                    raise ProtocolError(f"tar returned an unexpected target path: {name!r}")
 
                 if member.issym():
                     entries[name] = _Archived(
@@ -89,9 +90,7 @@ def _parse_archive(data: bytes, expected: set[str]) -> dict[str, _Archived]:
                     try:
                         content = handle.read()
                     except OSError as error:
-                        raise ProtocolError(
-                            f"cannot read target path {name}: {error}"
-                        ) from error
+                        raise ProtocolError(f"cannot read target path {name}: {error}") from error
                     entries[name] = _Archived(
                         kind="file",
                         executable=bool(member.mode & 0o111),
@@ -99,8 +98,7 @@ def _parse_archive(data: bytes, expected: set[str]) -> dict[str, _Archived]:
                     )
                 else:
                     raise ProtocolError(
-                        f"cannot represent target path {name}: "
-                        f"not a regular file or symlink"
+                        f"cannot represent target path {name}: not a regular file or symlink"
                     )
     except tarfile.TarError as error:
         raise ProtocolError(f"cannot parse the target's tar stream: {error}") from error
@@ -111,9 +109,7 @@ def _local_fence(store: GitStore, rev: str) -> bytes | None:
     return store.read_at(rev, GITIGNORE)
 
 
-def _target_fence(
-    target: Target, candidates: Sequence[tuple[bytes, str]]
-) -> bytes | None:
+def _target_fence(target: Target, candidates: Sequence[tuple[bytes, str]]) -> bytes | None:
     """The target's own ``.gitignore``, the fallback when no local fence exists."""
     raw = next((raw for raw, name in candidates if name == GITIGNORE), None)
     if raw is None:
@@ -159,19 +155,11 @@ def _is_ignored(name: str, specs: Iterable[GitIgnoreSpec]) -> bool:
     return any(spec.match_file(path) for spec in specs for path in candidates)
 
 
-def _tree_entries(
-    store: GitStore, archived: dict[str, _Archived]
-) -> list[tuple[str, str, str]]:
+def _tree_entries(store: GitStore, archived: dict[str, _Archived]) -> list[tuple[str, str, str]]:
     entries: list[tuple[str, str, str]] = []
     for name in sorted(archived):
         entry = archived[name]
-        mode = (
-            "120000"
-            if entry.kind == "symlink"
-            else "100755"
-            if entry.executable
-            else "100644"
-        )
+        mode = "120000" if entry.kind == "symlink" else "100755" if entry.executable else "100644"
         entries.append((mode, store.hash_blob(entry.content), name))
     return entries
 
@@ -194,18 +182,13 @@ def snapshot(
     if special:
         name = _name_of(special[0], role="target path")
         raise ProtocolError(
-            f"cannot represent target path {name}: "
-            f"only regular files and symlinks are supported"
+            f"cannot represent target path {name}: only regular files and symlinks are supported"
         )
 
-    candidates: list[tuple[bytes, str]] = []
-    for raw in target.find_files():
-        candidates.append((raw, _name_of(raw)))
+    candidates: list[tuple[bytes, str]] = [(raw, _name_of(raw)) for raw in target.find_files()]
 
     specs = _fence_specs(store, target, remote, candidates)
-    survivors = [
-        (raw, name) for raw, name in candidates if not _is_ignored(name, specs)
-    ]
+    survivors = [(raw, name) for raw, name in candidates if not _is_ignored(name, specs)]
 
     archive = target.archive(raw for raw, _ in survivors)
     archived = _parse_archive(archive, {name for _, name in survivors}) if archive else {}

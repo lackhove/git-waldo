@@ -28,9 +28,7 @@ def test_clone_of_an_empty_target_creates_the_snapshot_on_main(
     target.create()
     clone = tmp_path / "clone"
 
-    completed = _git(
-        ["clone", fake_ssh.url, str(clone)], tmp_path, real_git_env, check=False
-    )
+    completed = _git(["clone", fake_ssh.url, str(clone)], tmp_path, real_git_env, check=False)
 
     assert completed.returncode == 0, completed.stderr
     head = _git(["rev-parse", "HEAD"], clone, real_git_env).stdout.strip()
@@ -39,15 +37,12 @@ def test_clone_of_an_empty_target_creates_the_snapshot_on_main(
     assert f"snapshot of {fake_ssh.host}:{target.path}" in commit
     assert _git(["rev-parse", "HEAD^{tree}"], clone, real_git_env).stdout.strip() == EMPTY_TREE
     assert (
-        _git(["rev-parse", "refs/remotes/origin/main"], clone, real_git_env).stdout.strip()
-        == head
+        _git(["rev-parse", "refs/remotes/origin/main"], clone, real_git_env).stdout.strip() == head
     )
     assert "?" not in completed.stdout
 
 
-def test_clone_of_a_populated_target_records_its_files(
-    fake_ssh, target, real_git_env, tmp_path
-):
+def test_clone_of_a_populated_target_records_its_files(fake_ssh, target, real_git_env, tmp_path):
     target.populate(
         {
             "settings.yaml": "application:\n",
@@ -62,10 +57,7 @@ def test_clone_of_a_populated_target_records_its_files(
 
     assert completed.returncode == 0, completed.stderr
     listing = _git(["ls-tree", "-r", "HEAD"], clone, real_git_env).stdout
-    entries = {
-        line.split("\t", 1)[1]: line.split(" ", 1)[0]
-        for line in listing.splitlines()
-    }
+    entries = {line.split("\t", 1)[1]: line.split(" ", 1)[0] for line in listing.splitlines()}
     assert entries == {
         "settings.yaml": "100644",
         "scripts/night.yaml": "100644",
@@ -115,9 +107,7 @@ def test_clone_uses_the_descriptor_only_url_with_environment_overrides(
 
     assert completed.returncode == 0, completed.stderr
     head = _git(["rev-parse", "HEAD"], clone, real_git_env).stdout.strip()
-    assert (
-        _git(["rev-parse", "HEAD^{tree}"], clone, real_git_env).stdout.strip() == EMPTY_TREE
-    )
+    assert _git(["rev-parse", "HEAD^{tree}"], clone, real_git_env).stdout.strip() == EMPTY_TREE
     assert len(head) == 40
 
 
@@ -126,9 +116,7 @@ def test_ls_remote_outside_a_repository_prints_the_real_oid_and_symref(
 ):
     target.create()
 
-    completed = _git(
-        ["ls-remote", "--symref", fake_ssh.url], tmp_path, real_git_env, check=False
-    )
+    completed = _git(["ls-remote", "--symref", fake_ssh.url], tmp_path, real_git_env, check=False)
 
     assert completed.returncode == 0, completed.stderr
     lines = completed.stdout.splitlines()
@@ -158,10 +146,7 @@ def test_fetch_records_the_remote_branch_and_a_repeat_fetch_does_not_move_it(
     second = _git(["fetch", "origin"], repo, real_git_env, check=False)
 
     assert second.returncode == 0, second.stderr
-    assert (
-        _git(["rev-parse", "refs/remotes/origin/main"], repo, real_git_env).stdout.strip()
-        == oid
-    )
+    assert _git(["rev-parse", "refs/remotes/origin/main"], repo, real_git_env).stdout.strip() == oid
 
 
 def test_descriptor_only_url_reaches_the_helper_through_git(
@@ -175,7 +160,7 @@ def test_descriptor_only_url_reaches_the_helper_through_git(
             [
                 'user = "root"',
                 f'host = "{fake_ssh.host}"',
-                'ssh_port = 22222',
+                "ssh_port = 22222",
                 f'dir = "{target.path}"',
             ]
         )
@@ -192,9 +177,7 @@ def test_descriptor_only_url_reaches_the_helper_through_git(
     assert (call.host, call.user, call.port) == ("fake-target", "root", 22222)
 
 
-def test_a_bare_tarssh_colon_never_reaches_the_helper(
-    fake_ssh, real_git_env, tmp_path
-):
+def test_a_bare_tarssh_colon_never_reaches_the_helper(fake_ssh, real_git_env, tmp_path):
     completed = _git(["ls-remote", "tarssh:"], tmp_path, real_git_env, check=False)
 
     assert completed.returncode != 0
@@ -206,9 +189,7 @@ def test_a_sha256_repository_is_a_startup_error_naming_both_formats(
 ):
     target.create()
     repo = tmp_path / "sha256"
-    subprocess.run(
-        ["git", "init", "-q", "--object-format=sha256", str(repo)], check=True
-    )
+    subprocess.run(["git", "init", "-q", "--object-format=sha256", str(repo)], check=True)
 
     result = make_driver(
         [sys.executable, "-m", "tarssh.remote"],

@@ -143,7 +143,7 @@ LONG_OPTIONS = {
 }
 
 
-class Rejected(Exception):
+class RejectedError(Exception):
     def __init__(self, reason: str, returncode: int = 2) -> None:
         super().__init__(reason)
         self.reason = reason
@@ -153,7 +153,8 @@ class Rejected(Exception):
 def state_path() -> Path:
     raw = os.environ.get("FAKE_SSH_STATE")
     if not raw:
-        raise Rejected("fake target guard: FAKE_SSH_STATE is not set", 127)
+        message = "fake target guard: FAKE_SSH_STATE is not set"
+        raise RejectedError(message, 127)
     return Path(raw)
 
 
@@ -186,10 +187,7 @@ def is_extract(args: list[str]) -> bool:
 
 
 def is_recursive_rm(args: list[str]) -> bool:
-    return any(
-        arg.startswith("-") and not arg.startswith("--") and "r" in arg[1:]
-        for arg in args
-    )
+    return any(arg.startswith("-") and not arg.startswith("--") and "r" in arg[1:] for arg in args)
 
 
 def validate_short(command: str, args: list[str]) -> None:
@@ -199,18 +197,18 @@ def validate_short(command: str, args: list[str]) -> None:
             continue
         if arg.startswith("--"):
             if command == "rm":
-                raise Rejected(
+                raise RejectedError(
                     f"rm: option not available on target: {arg} (busybox rm has no --)", 2
                 )
             name = arg.split("=", 1)[0]
             if name not in LONG_OPTIONS[command]:
-                raise Rejected(f"{command}: option not available on target: {name}", 2)
+                raise RejectedError(f"{command}: option not available on target: {name}", 2)
             continue
         if not arg.startswith("-"):
             continue
         for letter in arg[1:]:
             if letter not in allowed:
-                raise Rejected(f"{command}: option not available on target: -{letter}", 2)
+                raise RejectedError(f"{command}: option not available on target: -{letter}", 2)
 
 
 def validate_find(args: list[str]) -> None:
@@ -221,10 +219,10 @@ def validate_find(args: list[str]) -> None:
             index += 1
             continue
         if arg.startswith("--"):
-            raise Rejected(f"find: option not available on target: {arg}", 2)
+            raise RejectedError(f"find: option not available on target: {arg}", 2)
         name = arg[1:]
         if name not in FIND_FLAGS:
-            raise Rejected(f"find: option not available on target: -{name}", 2)
+            raise RejectedError(f"find: option not available on target: -{name}", 2)
         index += 2 if name in FIND_TAKES_VALUE else 1
 
 
@@ -251,7 +249,7 @@ def validate_xargs(args: list[str]) -> None:
         if arg.startswith("--"):
             name = arg.split("=", 1)[0]
             if name not in XARGS_LONG:
-                raise Rejected(f"xargs: option not available on target: {name}", 2)
+                raise RejectedError(f"xargs: option not available on target: {name}", 2)
             if name in XARGS_LONG_WITH_VALUE and "=" not in arg:
                 index += 2
             else:
@@ -259,20 +257,21 @@ def validate_xargs(args: list[str]) -> None:
             continue
         name = arg[1:2]
         if name not in XARGS_SHORT:
-            raise Rejected(f"xargs: option not available on target: {arg}", 2)
+            raise RejectedError(f"xargs: option not available on target: {arg}", 2)
         index += 2 if name in XARGS_FLAGS_WITH_VALUE and len(arg) == 2 else 1
 
     if index >= len(args):
-        raise Rejected("xargs: no command to run on target", 2)
+        message = "xargs: no command to run on target"
+        raise RejectedError(message, 2)
     command, command_args = args[index], args[index + 1 :]
     if command not in BUSYBOX_COMMANDS:
-        raise Rejected(f"command not available: {command}", 127)
+        raise RejectedError(f"command not available: {command}", 127)
     validate(command, command_args)
 
 
 def validate(command: str, args: list[str]) -> None:
     if command not in BUSYBOX_COMMANDS:
-        raise Rejected(f"command not available: {command}", 127)
+        raise RejectedError(f"command not available: {command}", 127)
     if command == "find":
         validate_find(args)
         return
@@ -301,24 +300,20 @@ def main(argv: list[str] | None = None) -> int:
             log({"kind": "extraction", "reason": reason})
             print(f"fake-target: extraction failed: {reason}", file=sys.stderr)
             return 2
-        if (
-            command == "rm"
-            and not is_recursive_rm(args)
-            and state.get("removal_failure")
-        ):
+        if command == "rm" and not is_recursive_rm(args) and state.get("removal_failure"):
             reason = state["removal_failure"]
             log({"kind": "removal", "reason": reason})
             print(f"fake-target: deletion failed: {reason}", file=sys.stderr)
             return 2
         real = state["real"][command]
-    except Rejected as rejected:
+    except RejectedError as rejected:
         reject(rejected.reason, rejected.returncode)
     except (KeyError, OSError, json.JSONDecodeError) as error:
         reject(f"guard cannot read fake target state: {error}", 127)
 
     log({"kind": "command", "command": command, "argv": args})
     try:
-        os.execv(real, [command, *args])
+        os.execv(real, [command, *args])  # noqa: S606  # exec the validated command directly
     except OSError as error:
         reject(f"{command}: cannot execute real command: {error}", 127)
     return 127

@@ -10,17 +10,20 @@ from __future__ import annotations
 import getpass
 import os
 import tomllib
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
 from urllib.parse import unquote, urlsplit
 
 from tarssh.errors import ProtocolError
 from tarssh.gitcmd import git_output
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 TOML_NAME = ".tarssh.toml"
 DEFAULT_PORT = 22
+MAX_PORT = 65535
 ENV_FIELDS = {
     "user": "TARSSH_USER",
     "host": "TARSSH_HOST",
@@ -68,9 +71,7 @@ def parse_remote_url(url: str) -> UrlTarget | None:
     if url in ("", "tarssh::"):
         return None
     if not url.startswith("tarssh://"):
-        raise ProtocolError(
-            f"not a tarssh helper URL: {url!r} (use tarssh://... or tarssh::)"
-        )
+        raise ProtocolError(f"not a tarssh helper URL: {url!r} (use tarssh://... or tarssh::)")
 
     try:
         parts = urlsplit(url)
@@ -133,7 +134,7 @@ def _environment(environ: Mapping[str, str] | None) -> Mapping[str, str]:
 
 def _value(mapping: Mapping[str, str], name: str) -> str | None:
     value = mapping.get(name)
-    return value if value else None
+    return value or None
 
 
 def _port(value: str, url: str) -> int:
@@ -141,7 +142,7 @@ def _port(value: str, url: str) -> int:
         port = int(value)
     except ValueError as error:
         raise ProtocolError(f"invalid SSH port {value!r} for {url}") from error
-    if not 1 <= port <= 65535:
+    if not 1 <= port <= MAX_PORT:
         raise ProtocolError(f"invalid SSH port {value!r} for {url}")
     return port
 
@@ -218,33 +219,40 @@ def resolve(
     )
     warnings = (warning,) if warning is not None else ()
 
-    host = env_host or url_host or fields.get("host")
+    file_host = fields.get("host")
+    host = env_host or url_host or (file_host if isinstance(file_host, str) else None)
     if not host:
         raise ProtocolError(
             f"no target host: set TARSSH_HOST, use tarssh://host/..., "
             f"or add host to {TOML_NAME} (URL: {shown_url})"
         )
 
-    user = env_user or url_user or fields.get("user") or _local_username()
+    file_user = fields.get("user")
+    user = (
+        env_user
+        or url_user
+        or (file_user if isinstance(file_user, str) else None)
+        or _local_username()
+    )
 
+    file_port = fields.get("ssh_port")
     if env_port is not None:
         port = _port(env_port, shown_url)
     elif url_port is not None:
         port = url_port
-    elif fields.get("ssh_port") is not None:
-        port = int(fields["ssh_port"])
+    elif isinstance(file_port, int) and not isinstance(file_port, bool):
+        port = file_port
     else:
         port = DEFAULT_PORT
 
-    path = env_dir or url_path or fields.get("dir")
+    file_dir = fields.get("dir")
+    path = env_dir or url_path or (file_dir if isinstance(file_dir, str) else None)
     if not path:
         raise ProtocolError(
             f"no target directory: set TARSSH_DIR or {TOML_NAME} (URL: {shown_url})"
         )
     if not path.startswith("/"):
-        raise ProtocolError(
-            f"target directory is not absolute: {path!r} (URL: {shown_url})"
-        )
+        raise ProtocolError(f"target directory is not absolute: {path!r} (URL: {shown_url})")
 
     descriptor = Descriptor(
         user=str(user),
@@ -256,9 +264,7 @@ def resolve(
     return Resolved(descriptor=descriptor, warnings=tuple(warnings))
 
 
-def _prompt(
-    stdin: TextIO, stdout: TextIO, label: str, default: str | None
-) -> str:
+def _prompt(stdin: TextIO, stdout: TextIO, label: str, default: str | None) -> str:
     """Ask once for one field; an empty answer keeps the offered default."""
     shown = f" [{default}]" if default else ""
     stdout.write(f"{label}{shown}: ")
@@ -269,7 +275,7 @@ def _prompt(
             return default
         raise ProtocolError(f"no value for {label}: stdin was closed")
     value = line.strip()
-    return value if value else (default or "")
+    return value or (default or "")
 
 
 def _confirm(stdin: TextIO, stdout: TextIO, path: Path) -> None:
@@ -313,11 +319,10 @@ def write_descriptor(root: Path, *, stdin: TextIO, stdout: TextIO) -> Path:
         "user",
         str(existing_user) if existing_user is not None else _local_username(),
     )
-    host = _prompt(
-        stdin, stdout, "host", str(existing_host) if existing_host is not None else None
-    )
+    host = _prompt(stdin, stdout, "host", str(existing_host) if existing_host is not None else None)
     if not host:
-        raise ProtocolError("host must not be empty")
+        message = "host must not be empty"
+        raise ProtocolError(message)
 
     port_text = _prompt(
         stdin,
@@ -331,7 +336,8 @@ def write_descriptor(root: Path, *, stdin: TextIO, stdout: TextIO) -> Path:
         stdin, stdout, "dir", str(existing_dir) if existing_dir is not None else None
     )
     if not target_dir:
-        raise ProtocolError("dir must not be empty")
+        message = "dir must not be empty"
+        raise ProtocolError(message)
     if not target_dir.startswith("/"):
         raise ProtocolError(f"dir must be an absolute path: {target_dir!r}")
 
