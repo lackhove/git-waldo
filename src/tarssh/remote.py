@@ -16,14 +16,15 @@ from tarssh import __version__
 from tarssh import descriptor as descriptor_module
 from tarssh.errors import ProtocolError
 from tarssh.gitcmd import GitStore
-from tarssh.snapshot import MAIN_REF, snapshot
+from tarssh.push import push_refs
+from tarssh.snapshot import MAIN_REF, remote_ref, snapshot
 from tarssh.target import Target
 
 USAGE = "usage: git-remote-tarssh <remote> <url> | --config | --version"
 
-#: Options git may ask about. ticket 02 has no push, so ``push`` is absent from
-#: the advertised capabilities even though the option vocabulary is real.
-CAPABILITIES = ("fetch", "option")
+#: Options git may ask about. ``push`` is advertised so git sends the
+#: ``list for-push``/``push`` commands instead of failing before the handshake.
+CAPABILITIES = ("fetch", "push", "option")
 SUPPORTED_OPTIONS = {"dry-run", "verbosity", "followtags", "cloning"}
 
 
@@ -117,8 +118,11 @@ def handle_list(
     stdout: TextIO,
 ) -> None:
     if for_push:
-        # Push arrives in ticket 04. An empty advertisement is "no refs yet";
-        # ``?`` would mean "unknown value" and would make git fail.
+        # No remote branch means branch creation: an empty advertisement. When
+        # the branch exists, advertise its real oid, never ``?``.
+        existing = store.ref(remote_ref(remote))
+        if existing is not None:
+            out(stdout, f"{existing} {MAIN_REF}")
         out(stdout)
         return
     oid = snapshot(store, target, descriptor, remote)
@@ -136,6 +140,7 @@ def command_loop(
     target: Target,
     store: GitStore,
 ) -> int:
+    dry_run = False
     for raw in stdin:
         line = raw.rstrip("\n")
         if line == "":
@@ -146,7 +151,9 @@ def command_loop(
                 out(stdout, capability)
             out(stdout)
         elif command == "option":
-            name = rest.split(" ", 1)[0]
+            name, _, value = rest.partition(" ")
+            if name == "dry-run":
+                dry_run = value.strip() == "true"
             out(stdout, "ok" if name in SUPPORTED_OPTIONS else "unsupported")
         elif command == "list":
             handle_list(
@@ -160,7 +167,13 @@ def command_loop(
         elif command == "fetch":
             handle_fetch(store, stdin, line, stdout)
         elif command == "push":
-            raise ProtocolError("push is not implemented until ticket 04")
+            lines = read_batch(stdin, line)
+            result = push_refs(store, target, remote, lines, dry_run=dry_run)
+            for message in result.messages:
+                err(message)
+            for status in result.statuses:
+                out(stdout, status.line())
+            out(stdout)
         else:
             raise ProtocolError(f"unknown protocol command: {line}")
     return 0

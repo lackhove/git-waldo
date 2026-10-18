@@ -155,6 +155,19 @@ class GitStore:
             raise ProtocolError(f"git hash-object failed: {detail}")
         return completed.stdout.decode("utf-8", "replace").strip()
 
+    def archive(self, rev: str) -> bytes:
+        """The commit as a tar stream, ready to pipe into the target's tar."""
+        completed = subprocess.run(
+            ["git", "archive", "--format=tar", rev],
+            capture_output=True,
+            env=self._environment(),
+            check=False,
+        )
+        if completed.returncode != 0:
+            detail = completed.stderr.decode("utf-8", "replace").strip()
+            raise ProtocolError(f"git archive {rev} failed: {detail}")
+        return completed.stdout
+
     def commit(self, tree: str, parents: Iterable[str], message: str) -> str:
         args = ["commit-tree", tree]
         for parent in parents:

@@ -27,13 +27,13 @@ def test_capabilities_are_sent_only_in_response_to_git(
     silent.assert_stderr_empty()
 
 
-def test_capabilities_are_fetch_and_option_for_this_ticket(
+def test_capabilities_are_fetch_push_and_option(
     make_driver, fake_ssh, tarssh_env, tmp_path
 ):
     result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env).capabilities()
 
     result.assert_exit(0)
-    result.assert_stdout_lines("fetch", "option", "")
+    result.assert_stdout_lines("fetch", "push", "option", "")
     result.assert_stderr_empty()
 
 
@@ -62,6 +62,43 @@ def test_list_for_push_is_empty_without_fabricating_an_oid(
 
     result.assert_exit(0)
     result.assert_stdout_lines("")
+    assert "?" not in result.stdout
+
+
+def test_list_for_push_advertises_the_real_remote_branch_oid(
+    make_driver, fake_ssh, tarssh_env, tmp_path
+):
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-q", "--allow-empty", "-m", "seed"],
+        check=True,
+        env={
+            **tarssh_env,
+            "GIT_AUTHOR_NAME": "test",
+            "GIT_AUTHOR_EMAIL": "test@example.com",
+            "GIT_COMMITTER_NAME": "test",
+            "GIT_COMMITTER_EMAIL": "test@example.com",
+        },
+    )
+    head = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "-C", str(repo), "update-ref", "refs/remotes/origin/main", head],
+        check=True,
+    )
+
+    result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env, cwd=repo).list(
+        for_push=True
+    )
+
+    result.assert_exit(0)
+    result.assert_stdout_lines(f"{head} refs/heads/main", "")
+    result.assert_stderr_empty()
     assert "?" not in result.stdout
 
 
