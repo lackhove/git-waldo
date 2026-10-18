@@ -11,6 +11,7 @@ A settled design for a git remote helper (name pending ticket 02) that makes any
 - The settled model is in `docs/adr/0001-target-is-a-git-remote.md`; the repo split is in `docs/adr/0002-tool-and-config-are-separate-repos.md`.
 - Vocabulary: `GLOSSARY.md` at the repo root.
 - Ticket 01 is in flight elsewhere; this repo has no remote configured, so nothing is pushed.
+- The split executed 2026-10-18: tool at `~/code/tarssh`, config at `~/code/config-repo`, target tree equal to the config repo's `HEAD`.
 - **02 (naming)** settled: helper `git-remote-tarssh`, scheme `tarssh://`, remote `target`, branch `main`, config `.tarssh.toml`, env `TARSSH_*`, tool repo `tarssh`, config repo `config-repo`.
 
 ## Decisions so far
