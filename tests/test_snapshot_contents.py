@@ -279,6 +279,28 @@ def test_both_local_fences_hide_their_own_paths(
     assert {path.decode() for path in tree} == {"visible.txt"}
 
 
+def test_a_negation_cannot_reinclude_a_file_under_an_ignored_directory(
+    make_driver, fake_ssh, target, tarssh_env, tmp_path
+):
+    target.create()
+    target.write(".gitignore", b"runtime/\n!.gitignore\n")
+    target.populate(
+        {
+            "visible.txt": b"visible\n",
+            "runtime/.gitignore": b"",
+            "runtime/state.json": b'{"state": "on"}\n',
+        }
+    )
+    repo = _init_repo(tmp_path, tarssh_env)
+    base = _base_commit(repo, tarssh_env, "runtime/\n!.gitignore\n")
+    _git(repo, "update-ref", "refs/heads/main", base, env=tarssh_env)
+
+    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    tree = _ls_tree(repo, _oid(result), tarssh_env)
+
+    assert {path.decode() for path in tree} == {".gitignore", "visible.txt"}
+
+
 def test_a_changed_target_is_parented_on_the_existing_remote_branch(
     make_driver, fake_ssh, target, tarssh_env, tmp_path
 ):

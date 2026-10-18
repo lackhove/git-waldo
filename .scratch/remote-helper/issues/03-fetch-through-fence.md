@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Walking skeleton: clone an empty target
 
-**Status:** done
+**Status:** resolved
 
 - [x] A target with regular files and symlinks produces a snapshot whose tree equals the target's non-ignored paths, byte for byte.
 - [x] Regular modes 0644 and 0755 and symlink mode 120000 are preserved; symlinks are stored as links and never followed.
@@ -25,3 +25,7 @@ one; FIFO, socket, unreadable file and non-UTF-8 name run everywhere.
 `Target` now owns the read seam (`find_files`, `find_special`, `archive`), so
 ticket 04 can add write operations without changing callers. `snapshot.py`
 parses the tar stream in `snapshot.py`; the target module only transports bytes.
+
+## Answer
+
+Resolved 2026-10-18. Commit `40b9594` (merged `4d05333`) built real snapshots through the union fence. Verified by `tests/test_snapshot.py` and `tests/test_snapshot_contents.py`, including both union directions and every refused path type. The live cutover exposed one fence edge — a negation re-including a file under an ignored directory — fixed with a regression test in ticket 08.

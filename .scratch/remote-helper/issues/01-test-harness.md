@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** done
+**Status:** resolved
 
 - [x] `uv run pytest` runs the harness.
 - [x] A target directory can be created, populated, emptied, removed, and made unreadable per test.
@@ -12,3 +12,7 @@
 - [x] Any attempt to use git, rsync, SFTP, or a command or flag outside the busybox set fails the test and names the offending command.
 - [x] The protocol driver feeds `list`, `list for-push`, `fetch`, `push`, and `option` batches, and asserts stdout lines, stderr lines, and exit codes independently.
 - [x] SSH failure, unreadable target, missing target, and failed extraction are simulatable.
+
+## Answer
+
+Resolved 2026-10-18. Commit `6b6e6d5` (merged `58ab1c4`) added `tests/conftest.py`, `fake_ssh.py`, `harness.py`, the protocol driver, the busybox guard and the git shim. Verified by the full `uv run pytest` suite (141 passed, 1 skipped for `CAP_MKNOD`); the tests never contact the live target.

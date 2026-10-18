@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 — Fetch a real target through the fence, refusing what cannot be represented; 04 — First push creates the target and deploys the commit
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Added and modified paths are written via a git archive piped into a target-side tar extraction; deletions use `rm -f` with `./`-relative paths in chunks of about 500 per SSH call.
 - [ ] The lock is taken before the clean check, so two concurrent pushes cannot both pass it, and is released on every exit path.
@@ -15,3 +15,7 @@
 - [ ] A no-op push reports `already up to date` on stderr.
 - [ ] The helper never writes the remote branch; git updates it.
 - [ ] Tests cover add, modify, delete, no-op, drift, non-fast-forward, dry-run, and target-side survival.
+
+## Answer
+
+Resolved 2026-10-18. Commit `950d171` (merged `aa7ab21`) implemented delta pushes, the lock-before-clean-check, the fast-forward check and no-op reporting. Verified by `tests/test_delta_push.py`; the live cutover's `git push target main` reported `already up to date` and left the target unchanged.

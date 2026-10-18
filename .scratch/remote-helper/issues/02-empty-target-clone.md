@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Fake target and protocol test harness
 
-**Status:** done
+**Status:** resolved
 
 - [x] `git clone tarssh://…` of an empty target creates a repository whose `HEAD` is a snapshot commit with ident `tarssh <tarssh@localhost>` and subject `snapshot of <host>:<path>`.
 - [x] `git ls-remote`, including outside any repository, prints `@refs/heads/main HEAD`, the real oid, and a blank line; no `?` is advertised.
@@ -21,3 +21,7 @@
 
 `list for-push` answers with an empty ref list in this ticket, deliberately
 without `?` or a fabricated oid, until ticket 04 owns the push-side snapshot.
+
+## Answer
+
+Resolved 2026-10-18. Commit `1d10bf6` (merged `9d94f44`) implemented the installable helper, descriptor precedence, URL handling and the clone/fetch skeleton. Verified by `tests/test_clone.py`, `tests/test_descriptor.py`, `tests/test_remote_protocol.py`; the live cutover in ticket 08 fetched `tarssh::` into a root snapshot with the required ident and subject.

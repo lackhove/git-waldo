@@ -12,14 +12,16 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 ## File structure
 
-This is a **single-context** repo: `GLOSSARY.md` and `docs/adr/` live at the repo root.
+This is a **single-context** repo: `GLOSSARY.md` and `docs/adr/` live at the repo root, alongside the helper package and its tests.
 
 ```
 /
 ├── GLOSSARY.md
-└── docs/adr/
-    ├── 0001-....md
-    └── 0002-....md
+├── docs/adr/
+│   ├── 0001-....md
+│   └── 0002-....md
+├── src/tarssh/      ← the remote helper
+└── tests/           ← fake-target protocol tests
 ```
 
 ## Use the glossary's vocabulary

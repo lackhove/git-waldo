@@ -10,6 +10,8 @@ Design: `docs/design/spec.md` (settled, traceable to ADRs and tickets). Model: `
 - `tests/` — protocol and target-invariant tests.
 - `docs/` — ADRs, design, agent docs. `.scratch/` — issues and specs.
 
+The config repo is separate; it holds the deployed files and the `target` remote. Its own documentation covers the workflow.
+
 ## Transport facts (do not relearn these the hard way)
 
 - The target has no git, no rsync, no SFTP. Only `find`, `tar`, `rm`, `mkdir`, `xargs`, `sha1sum`.

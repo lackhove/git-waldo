@@ -153,7 +153,7 @@ Force pushes, branch deletion, tags, extra branches, `pull`/`sync` verbs, auto-m
 
 ## 10. Repo split
 
-Executed once, after this spec: `config/**` moves to a new `config-repo` repo whose root *is* the target directory; this repo becomes `tarssh` (ADR-0002). The seed is a hand-made import commit whose tree is byte-identical to the target, furniture second; `the bridge` survives as a temporary `--repo` bridge with the the application check stripped, until `git-remote-tarssh` works. The full six-step order and acceptance criteria are in ticket 03.
+Executed once, after this spec: `config/**` moved to a new `config-repo` repo whose root *is* the target directory; this repo became `tarssh` (ADR-0002). The seed is a hand-made import commit whose tree is byte-identical to the target, furniture second. The temporary bridge was retired at cutover (ticket 08) once `git-remote-tarssh` worked; the tool repo carries no deploy script. The split's six-step order and acceptance criteria are in ticket 03; the cutover and its end-to-end check are in ticket 08.
 
 ## 11. Not covered here
 
@@ -173,5 +173,6 @@ Executed once, after this spec: `config/**` moves to a new `config-repo` repo wh
 | Capabilities, `list`/`list for-push`/`fetch`/`push`/`option`, status tokens, no `?` | 01, 04 |
 | Snapshot ident/message/parent/skip rule | 04 |
 | Fence union, `--no-filters`, path types, delta mechanics, lock, stderr reporting | 05 |
-| Split plan, seed, bridge script, fence additions | 03 |
+| Split plan, seed, fence additions | 03 |
+| Cutover of the live config repo, bridge retirement | 08 |
 | `.gitignore` travels and is the only fence | ADR-0001 |

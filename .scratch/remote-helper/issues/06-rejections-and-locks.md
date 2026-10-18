@@ -4,7 +4,7 @@
 
 **Blocked by:** 05 — Delta pushes with clean check and fast-forward
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] A `+`/force push sends `error <dst> force pushes are not supported`, which git shows as `[remote rejected]`.
 - [ ] A `:<dst>` deletion sends `error <dst> deleting branches is not supported`.
@@ -14,3 +14,7 @@
 - [ ] When a deletion is refused, per-file lines identify the affected paths.
 - [ ] Ref rejections exit 0 after printing statuses; SSH failure, unreadable target, and failed extraction go to stderr with a non-zero exit.
 - [ ] Tests cover every rejection and failure case and never contact a live target.
+
+## Answer
+
+Resolved 2026-10-18. Commit `4394576` (merged `4cfed56`) implemented force/delete/wrong-ref rejections, stale-lock reporting, interrupted-deploy drift and the exit-code rules. Verified by `tests/test_rejections.py`.
