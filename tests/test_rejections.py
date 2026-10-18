@@ -11,23 +11,11 @@ from push_support import (
     git,
     head_tree,
     lock_path,
-    make_repo,
+    make_pushed_repo,
     push,
     target_tree,
+    up_to_date_message,
 )
-
-CONFIG_FILES = {
-    "a.txt": (b"alpha\n", 0o644),
-    "sub/b.sh": (b"#!/bin/sh\necho beta\n", 0o755),
-}
-
-
-def make_pushed_repo(fake_ssh, tmp_path, env, files=None):
-    repo = make_repo(tmp_path, env, files or CONFIG_FILES)
-    git(["remote", "add", "target", fake_ssh.url], repo, env)
-    completed = push(repo, env, "-u")
-    assert completed.returncode == 0, completed.stderr
-    return repo
 
 
 def helper_driver(make_driver, fake_ssh, env, repo):
@@ -271,7 +259,7 @@ def test_a_failed_extraction_releases_the_lock_and_the_half_state_blocks_push(
     reconciled = push(repo, real_git_env)
 
     assert reconciled.returncode == 0, reconciled.stderr
-    assert "already up to date" in reconciled.stderr
+    assert up_to_date_message(target) in reconciled.stderr
     assert target.read_text("a.txt") == "beta\n"
     assert (
         git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
@@ -324,3 +312,32 @@ def test_a_failed_deletion_releases_the_lock_and_names_each_path(
         git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
         == git(["rev-parse", "HEAD"], repo, real_git_env).stdout.strip()
     )
+
+
+def test_a_failed_deletion_names_only_the_paths_the_target_reports(
+    fake_ssh, target, real_git_env, tmp_path
+):
+    repo = make_pushed_repo(
+        fake_ssh,
+        tmp_path,
+        real_git_env,
+        {
+            "a.txt": (b"alpha\n", 0o644),
+            "a.txt.bak": (b"backup\n", 0o644),
+        },
+    )
+    (repo / "a.txt").unlink()
+    (repo / "a.txt.bak").unlink()
+    commit(repo, real_git_env)
+    fake_ssh.fail_removal("rm: can't remove './a.txt': Permission denied")
+
+    failed = push(repo, real_git_env)
+
+    assert failed.returncode != 0
+    assert "git-remote-tarssh: cannot delete a.txt from target" in failed.stderr
+    assert (
+        "git-remote-tarssh: cannot delete a.txt.bak from target"
+        not in failed.stderr
+    )
+    assert "cannot delete from target" in failed.stderr
+    assert not lock_path(target).exists()

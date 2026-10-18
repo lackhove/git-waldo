@@ -26,7 +26,7 @@ def fake_ssh(target, tmp_path):
 
 @pytest.fixture
 def stub_helper():
-    """The in-test helper executable, replaced by the real one in ticket 02."""
+    """The in-test helper executable used to exercise the harness itself."""
     return Path(__file__).with_name("stub_helper.py")
 
 
@@ -75,7 +75,7 @@ def git_env(fake_ssh, stub_command):
 
 @pytest.fixture
 def real_helper():
-    """Argv that runs the ticket 02 helper module."""
+    """Argv that runs the real helper module."""
     return [sys.executable, "-m", "tarssh.remote"]
 
 

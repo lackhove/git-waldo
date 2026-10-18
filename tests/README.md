@@ -1,8 +1,8 @@
 # Test harness
 
 Everything here is test infrastructure. The helper under test is supplied by
-the test, so the same harness serves the stub in ticket 01 and the real
-`tarssh.remote` later.
+the test, so the same harness serves both the stub helper and the real
+`tarssh.remote`.
 
 ## Fixtures (`conftest.py`)
 

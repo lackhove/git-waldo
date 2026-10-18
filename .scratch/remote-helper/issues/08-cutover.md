@@ -6,13 +6,13 @@
 
 **Status:** resolved
 
-- [ ] The installed tool is discovered by git as `git-remote-tarssh`.
-- [ ] `git-remote-tarssh --config` works in the config repo, or its behavior is verified against the existing target descriptor; the `target` remote is `tarssh::`.
-- [ ] `git fetch target` records the live target as a root snapshot, and the unrelated histories are reconciled with `git merge -s ours --allow-unrelated-histories target/main`.
-- [ ] `git push target main` succeeds; the target tree equals the config repo's `HEAD` for non-ignored paths, verified by a path-sorted `sha1sum` comparison on both sides.
-- [ ] The temporary bridge is deleted and no stale bridge references remain in the tool's docs or layout docs.
-- [ ] The fake-target test suite still passes and no test contacts the live target.
-- [ ] The execution date and results are recorded in this ticket, as the earlier split ticket did.
+- [x] The installed tool is discovered by git as `git-remote-tarssh`.
+- [x] `git-remote-tarssh --config` works in the config repo, or its behavior is verified against the existing target descriptor; the `target` remote is `tarssh::`.
+- [x] `git fetch target` records the live target as a root snapshot, and the unrelated histories are reconciled with `git merge -s ours --allow-unrelated-histories target/main`.
+- [x] `git push target main` succeeds; the target tree equals the config repo's `HEAD` for non-ignored paths, verified by a path-sorted `sha1sum` comparison on both sides.
+- [x] The temporary bridge is deleted and no stale bridge references remain in the tool's docs or layout docs.
+- [x] The fake-target test suite still passes and no test contacts the live target.
+- [x] The execution date and results are recorded in this ticket, as the earlier split ticket did.
 
 ## Answer
 
@@ -23,3 +23,5 @@ Resolved 2026-10-18. Installed `tarssh 0.1.0` from this worktree with `uv tool i
 Reconciled with `git merge -s ours --allow-unrelated-histories target/main`: merge commit `167bdad6b47c732716bc7ce1aa777e045465b211`, parents `aaaaaaa` and `bbbbbbb`. `git push target main` exited 0 and reported `already up to date` / `bbbbbbb..167bdad main -> main` (no files deployed because the trees were equal). A second `git fetch target` left `refs/remotes/target/main` at `167bdad`.
 
 Path-sorted `sha1sum` of all 18 tracked paths was identical locally and on the target (`diff` empty). Ignored target files were not deployed, `.tarssh.toml` is absent from the target, and no `tarssh-*.lock` remained. `the bridge` was deleted and bridge/layout references removed from `AGENTS.md`, `docs/agents/domain.md`, and `docs/design/spec.md` §10/Traceability. `uv run pytest` and `uv run ruff check .` pass; no test contacts the live target.
+
+Config verification follow-up (2026-10-18): reinstalled from this worktree with `uv tool install --force .` and exercised `--config` in two throwaway git repositories under `/tmp/opencode/tarssh-config-verify-0Af2HO`, never touching the live config repo. The first copied in the live `.tarssh.toml`; answering `n` at the overwrite prompt exited 1 with `... not overwritten`, and the file's sha256 was unchanged. The second started empty; piped values (`deployer`, `example.test`, `2222`, `/srv/config`) exited 0, wrote exactly `user = "deployer"`, `host = "example.test"`, `ssh_port = 2222`, `dir = "/srv/config"`, and registered `target` as `tarssh::`.

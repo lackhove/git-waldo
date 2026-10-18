@@ -6,18 +6,16 @@ import sys
 
 import pytest
 from push_support import (
+    CONFIG_FILES,
+    deploy_message,
     git,
     head_tree,
     lock_path,
     make_repo,
     push,
     target_tree,
+    up_to_date_message,
 )
-
-CONFIG_FILES = {
-    "a.txt": (b"alpha\n", 0o644),
-    "sub/b.sh": (b"#!/bin/sh\necho beta\n", 0o755),
-}
 
 
 def test_first_push_to_a_missing_target_creates_it_and_deploys_head(
@@ -32,7 +30,7 @@ def test_first_push_to_a_missing_target_creates_it_and_deploys_head(
     assert completed.returncode == 0, completed.stderr
     assert target.path.is_dir()
     assert target_tree(target) == head_tree(repo, real_git_env)
-    assert "deploying 2 changes: 2 written, 0 deleted" in completed.stderr
+    assert deploy_message(target, 2, 0) in completed.stderr
     assert f"mkdir -p {target.path}" in [call.command for call in fake_ssh.calls]
     assert (
         git(["rev-parse", "--abbrev-ref", "main@{upstream}"], repo, real_git_env)
@@ -54,7 +52,7 @@ def test_first_push_to_a_missing_or_empty_target(
 
     assert completed.returncode == 0, completed.stderr
     assert target_tree(target) == head_tree(repo, real_git_env)
-    assert "deploying 2 changes: 2 written, 0 deleted" in completed.stderr
+    assert deploy_message(target, 2, 0) in completed.stderr
 
 
 def test_first_push_updates_the_remote_branch_locally(
@@ -82,7 +80,7 @@ def test_dry_run_reports_the_same_counts_and_writes_nothing(
     completed = push(repo, real_git_env, "--dry-run")
 
     assert completed.returncode == 0, completed.stderr
-    assert "deploying 2 changes: 2 written, 0 deleted" in completed.stderr
+    assert deploy_message(target, 2, 0) in completed.stderr
     commands = [call.command for call in fake_ssh.calls]
     assert f"mkdir {lock_path(target)}" in commands
     assert f"rm -rf {lock_path(target)}" in commands
@@ -114,7 +112,7 @@ def test_dry_run_still_receives_the_push_lines_at_protocol_level(
 
     result.assert_exit(0)
     result.assert_stdout_lines("ok", "", "ok refs/heads/main", "")
-    result.assert_stderr_lines("deploying 2 changes: 2 written, 0 deleted")
+    result.assert_stderr_lines(deploy_message(target, 2, 0))
     assert not target.path.exists()
 
 
@@ -127,7 +125,7 @@ def test_a_first_push_of_an_empty_commit_reports_already_up_to_date(
     completed = push(repo, real_git_env, "-u")
 
     assert completed.returncode == 0, completed.stderr
-    assert "already up to date" in completed.stderr
+    assert up_to_date_message(target) in completed.stderr
     assert target.path.is_dir()
     assert target_tree(target) == {}
 
@@ -217,5 +215,5 @@ def test_the_protocol_keeps_stdout_pure_and_operator_counts_on_stderr(
 
     result.assert_exit(0)
     result.assert_stdout_lines("ok refs/heads/main", "")
-    result.assert_stderr_lines("deploying 2 changes: 2 written, 0 deleted")
+    result.assert_stderr_lines(deploy_message(target, 2, 0))
     assert target_tree(target) == head_tree(repo, tarssh_env)

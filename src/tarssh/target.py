@@ -7,11 +7,9 @@ failed command means.
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import shlex
 import subprocess
-import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -186,19 +184,3 @@ class Target:
         if completed.returncode != 0:
             detail = _detail(completed.stderr) or f"ssh exited {completed.returncode}"
             raise ProtocolError(f"cannot release lock {path}: {detail}")
-
-    @contextlib.contextmanager
-    def locked(self):
-        """Hold the target lock for one deployment; always release it.
-
-        A lock that was already there belongs to someone else (or a previous
-        interrupted run) and is reported, never removed.
-        """
-        path = self.acquire_lock()
-        try:
-            yield path
-        finally:
-            try:
-                self.release_lock(path)
-            except ProtocolError as error:
-                print(f"git-remote-tarssh: {error}", file=sys.stderr, flush=True)

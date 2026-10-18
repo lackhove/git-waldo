@@ -82,6 +82,27 @@ def test_clone_of_a_populated_target_records_its_files(
     )
 
 
+def test_clone_of_a_non_empty_target_uses_its_gitignore_as_the_fallback_fence(
+    fake_ssh, target, real_git_env, tmp_path
+):
+    target.create()
+    target.write(".gitignore", b"runtime/\nlocal-*.txt\n")
+    target.populate(
+        {
+            "settings.yaml": "application:\n",
+            "runtime/state.json": '{"state": "on"}\n',
+            "local-notes.txt": "operator only\n",
+        }
+    )
+    clone = tmp_path / "fenced-clone"
+
+    completed = _git(["clone", fake_ssh.url, str(clone)], tmp_path, real_git_env, check=False)
+
+    assert completed.returncode == 0, completed.stderr
+    listing = _git(["ls-tree", "-r", "--name-only", "HEAD"], clone, real_git_env).stdout
+    assert set(listing.splitlines()) == {".gitignore", "settings.yaml"}
+
+
 def test_clone_uses_the_descriptor_only_url_with_environment_overrides(
     fake_ssh, target, real_git_env, tmp_path
 ):

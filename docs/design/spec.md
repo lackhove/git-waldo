@@ -55,7 +55,7 @@ Two URL shapes are meaningful:
 
 A bare `tarssh:` is **not** a helper URL: git parses it as scp-like `host:path` and tries to SSH to a host called `tarssh` (verified against git 2.56). Only `tarssh://…` and `tarssh::` reach the helper.
 
-When the URL contradicts `.tarssh.toml`, the helper proceeds and prints one stderr line naming both — `using user@10.0.0.7:22222 from the remote URL; .tarssh.toml says host.example`. A retarget is `git remote set-url`, not a commit; the committed file only has to be right for new clones. The guard against deploying to the wrong host is the clean check plus the target named on stderr, not this precedence.
+When the URL contradicts `.tarssh.toml`, the helper proceeds and prints one stderr line naming both values, for every field the URL carries explicitly whose effective value still comes from the URL (a `TARSSH_*` override suppresses that field) — `using user=root, ssh_port=22222 from the remote URL; .tarssh.toml says user=deployer, ssh_port=22`. A retarget is `git remote set-url`, not a commit; the committed file only has to be right for new clones. The guard against deploying to the wrong host is the clean check plus the target named on stderr, not this precedence.
 
 ### Executables
 
@@ -107,7 +107,7 @@ A snapshot records the target's state as a commit no human authored.
 
 1. Read the committed `.gitignore` — the fence — with a single-file tar.
 2. `find . \( -type f -o -type l \)` on the target.
-3. Filter the names through git's ignore semantics against the **union** of the fences at `target/main` and `HEAD`. A path ignored by either is invisible: over-ignoring costs a blind spot, under-ignoring costs a leaked secret.
+3. Filter the names through git's ignore semantics against the **union** of the fences at `target/main` and `HEAD`. A path ignored by either is invisible: over-ignoring costs a blind spot, under-ignoring costs a leaked secret. When neither local fence exists — cloning a non-empty target, or a first snapshot in a repo without `HEAD` — the target's own `.gitignore` is the fallback fence; normal fetches always use only the local union.
 4. `tar -cf - -T -` the survivors, using `./`-relative names.
 
 Locally, blobs are written with `git hash-object -w --no-filters` and the tree assembled with `git update-index --cacheinfo` against a temporary `GIT_INDEX_FILE`. Never `git add`: it applies the operator's `core.autocrlf` and clean filters, which would rewrite content silently.
@@ -142,8 +142,8 @@ An interrupted push leaves the target drifted; the next push refuses until the o
 
 stdout is the protocol. Everything for the operator goes to stderr:
 
-- one line naming the target and counts: `deploying 3 changes: 2 written, 1 deleted`
-- `already up to date` for a no-op (git prints `Everything up-to-date` only when it never invoked the helper)
+- one line naming the target and counts: `deploying 3 changes to user@10.0.0.7:22222:/srv/config: 2 written, 1 deleted`
+- `already up to date with user@10.0.0.7:22222:/srv/config` for a no-op (git prints `Everything up-to-date` only when it never invoked the helper)
 - the drift path list on rejection
 - per-file lines only when a deletion is refused
 
@@ -169,7 +169,7 @@ Executed once, after this spec: `config/**` moved to a new `config-repo` repo wh
 | Target is a git remote, git semantics are the spec, no force/CLI | ADR-0001 |
 | Tool and config are separate repos; one target per config repo | ADR-0002 |
 | Tool named `tarssh`; `target` as remote name; `main` on both sides; one binary; `--config`/`--version` | 02 |
-| Committed descriptor, env overrides, URL wins with a divergence warning | 02, 06 (Q7b) |
+| Committed descriptor, env overrides, URL wins with a disagreement warning | 02, 06 (Q7b) |
 | Capabilities, `list`/`list for-push`/`fetch`/`push`/`option`, status tokens, no `?` | 01, 04 |
 | Snapshot ident/message/parent/skip rule | 04 |
 | Fence union, `--no-filters`, path types, delta mechanics, lock, stderr reporting | 05 |

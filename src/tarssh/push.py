@@ -13,6 +13,7 @@ results, not transport errors, so the helper still exits zero.
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 
@@ -37,7 +38,7 @@ class Refspec:
     deletion: bool = False
 
     @property
-    def problem(self) -> str:
+    def problem(self) -> str | None:
         """The rejection for a refspec this build must not act on.
 
         Precedence is part of the outcome: a forced deletion of another
@@ -49,7 +50,7 @@ class Refspec:
             return "deleting branches is not supported"
         if self.dst != MAIN_REF:
             return "only refs/heads/main is deployed"
-        return ""
+        return None
 
 
 def parse_refspec(line: str) -> Refspec:
@@ -71,16 +72,23 @@ def parse_refspec(line: str) -> Refspec:
     return Refspec(src=src, dst=dst, force=force, deletion=deletion)
 
 
-def _changed_paths(store: GitStore, old: str, new: str) -> list[str]:
-    """Paths whose type or content differs, from ``git diff-tree``."""
+def _diff_entries(
+    store: GitStore, old: str, new: str
+) -> list[tuple[str, str]]:
+    """``(status, path)`` pairs from ``git diff-tree``, in diff order."""
     raw = store.run("diff-tree", "-r", "--name-status", "-z", old, new).stdout
     fields = raw.split("\0")
-    paths: list[str] = []
+    entries: list[tuple[str, str]] = []
     index = 0
     while index + 1 < len(fields) and fields[index]:
-        paths.append(fields[index + 1])
+        entries.append((fields[index], fields[index + 1]))
         index += 2
-    return paths
+    return entries
+
+
+def _changed_paths(store: GitStore, old: str, new: str) -> list[str]:
+    """Paths whose type or content differs, from ``git diff-tree``."""
+    return [path for _, path in _diff_entries(store, old, new)]
 
 
 @dataclass(frozen=True)
@@ -114,14 +122,9 @@ def _full_delta(store: GitStore, commit: str) -> Delta:
 
 
 def _delta(store: GitStore, old: str, new: str) -> Delta:
-    raw = store.run("diff-tree", "-r", "--name-status", "-z", old, new).stdout
-    fields = raw.split("\0")
     written: list[str] = []
     deleted: list[str] = []
-    index = 0
-    while index + 1 < len(fields) and fields[index]:
-        status, path = fields[index], fields[index + 1]
-        index += 2
+    for status, path in _diff_entries(store, old, new):
         if status.startswith("D"):
             deleted.append(path)
         else:
@@ -194,6 +197,12 @@ def _is_ancestor(store: GitStore, old: str, new: str) -> bool:
     return completed.returncode == 0
 
 
+def _names_path(message: str, path: str) -> bool:
+    """Whether the target's stderr names exactly this ``./``-relative path."""
+    token = re.escape(f"./{path}")
+    return re.search(rf"(?<![\w./-]){token}(?![\w./-])", message) is not None
+
+
 def _apply(
     store: GitStore,
     target: Target,
@@ -213,10 +222,12 @@ def _apply(
         paths = delta.deleted[start : start + CHUNK]
         try:
             target.remove(f"./{path}" for path in paths)
-        except ProtocolError:
-            # There is no per-file protocol from busybox rm, so name every
-            # path in the refused chunk; the transport error follows.
-            for path in paths:
+        except ProtocolError as error:
+            # busybox rm names the paths it could not remove in stderr. Report
+            # only those; without per-path detail, the chunk is all we know.
+            message = str(error)
+            failed = [path for path in paths if _names_path(message, path)] or paths
+            for path in failed:
                 print(
                     f"git-remote-tarssh: cannot delete {path} from target",
                     file=sys.stderr,
@@ -274,12 +285,14 @@ def push_refs(
     statuses: list[RefStatus] = []
     messages: list[str] = []
     store = session.store
+    label = session.descriptor.label()
 
     session.prepare()
     for line in lines:
         refspec = parse_refspec(line)
-        if refspec.problem:
-            statuses.append(RefStatus(refspec.dst, refspec.problem))
+        problem = refspec.problem
+        if problem is not None:
+            statuses.append(RefStatus(refspec.dst, problem))
             continue
         if not store.has_commit(refspec.src):
             raise ProtocolError(
@@ -307,11 +320,11 @@ def push_refs(
         )
         if delta.count:
             messages.append(
-                f"deploying {delta.count} changes: "
+                f"deploying {delta.count} changes to {label}: "
                 f"{len(delta.written)} written, {len(delta.deleted)} deleted"
             )
         else:
-            messages.append("already up to date")
+            messages.append(f"already up to date with {label}")
         statuses.append(RefStatus(refspec.dst))
 
     return PushResult(tuple(statuses), tuple(messages))

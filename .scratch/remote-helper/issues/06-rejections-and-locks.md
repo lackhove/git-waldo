@@ -6,14 +6,14 @@
 
 **Status:** resolved
 
-- [ ] A `+`/force push sends `error <dst> force pushes are not supported`, which git shows as `[remote rejected]`.
-- [ ] A `:<dst>` deletion sends `error <dst> deleting branches is not supported`.
-- [ ] Any destination other than `refs/heads/main` sends `error <dst> only refs/heads/main is deployed`.
-- [ ] A stale lock is reported by its target path and is never auto-broken.
-- [ ] An interrupted or failed deploy leaves target drift; the next push refuses until a fetch and merge resolve it.
-- [ ] When a deletion is refused, per-file lines identify the affected paths.
-- [ ] Ref rejections exit 0 after printing statuses; SSH failure, unreadable target, and failed extraction go to stderr with a non-zero exit.
-- [ ] Tests cover every rejection and failure case and never contact a live target.
+- [x] A `+`/force push sends `error <dst> force pushes are not supported`, which git shows as `[remote rejected]`.
+- [x] A `:<dst>` deletion sends `error <dst> deleting branches is not supported`.
+- [x] Any destination other than `refs/heads/main` sends `error <dst> only refs/heads/main is deployed`.
+- [x] A stale lock is reported by its target path and is never auto-broken.
+- [x] An interrupted or failed deploy leaves target drift; the next push refuses until a fetch and merge resolve it.
+- [x] When a deletion is refused, per-file lines identify the affected paths.
+- [x] Ref rejections exit 0 after printing statuses; SSH failure, unreadable target, and failed extraction go to stderr with a non-zero exit.
+- [x] Tests cover every rejection and failure case and never contact a live target.
 
 ## Answer
 
