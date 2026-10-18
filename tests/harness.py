@@ -174,6 +174,7 @@ class FakeSSH:
             "shell": shutil.which("bash") or "/bin/sh",
             "connection_failure": None,
             "extraction_failure": None,
+            "removal_failure": None,
         }
         self._write_state()
         self._install_target_commands()
@@ -293,8 +294,16 @@ class FakeSSH:
     def fail_extraction(self, message: str = "tar: corrupted archive: short read") -> None:
         self._update_state(extraction_failure=message)
 
+    def fail_removal(self, message: str = "rm: Permission denied") -> None:
+        """Refuse non-recursive ``rm``; the lock's ``rm -rf`` still succeeds."""
+        self._update_state(removal_failure=message)
+
     def restore(self) -> None:
-        self._update_state(connection_failure=None, extraction_failure=None)
+        self._update_state(
+            connection_failure=None,
+            extraction_failure=None,
+            removal_failure=None,
+        )
 
     def _events(self) -> list[dict]:
         if not self.log_path.exists():
@@ -332,7 +341,7 @@ class FakeSSH:
         return [
             HarnessEvent(kind=event["kind"], reason=event["reason"])
             for event in self._events()
-            if event["kind"] in ("extraction", "ssh-failure")
+            if event["kind"] in ("extraction", "removal", "ssh-failure")
         ]
 
 

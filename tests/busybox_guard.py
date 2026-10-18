@@ -185,6 +185,13 @@ def is_extract(args: list[str]) -> bool:
     return False
 
 
+def is_recursive_rm(args: list[str]) -> bool:
+    return any(
+        arg.startswith("-") and not arg.startswith("--") and "r" in arg[1:]
+        for arg in args
+    )
+
+
 def validate_short(command: str, args: list[str]) -> None:
     allowed = SHORT_OPTIONS[command]
     for arg in args:
@@ -293,6 +300,15 @@ def main(argv: list[str] | None = None) -> int:
             reason = state["extraction_failure"]
             log({"kind": "extraction", "reason": reason})
             print(f"fake-target: extraction failed: {reason}", file=sys.stderr)
+            return 2
+        if (
+            command == "rm"
+            and not is_recursive_rm(args)
+            and state.get("removal_failure")
+        ):
+            reason = state["removal_failure"]
+            log({"kind": "removal", "reason": reason})
+            print(f"fake-target: deletion failed: {reason}", file=sys.stderr)
             return 2
         real = state["real"][command]
     except Rejected as rejected:
