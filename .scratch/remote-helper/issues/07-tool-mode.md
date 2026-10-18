@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Walking skeleton: clone an empty target
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `git-remote-tarssh --version` prints the tool version and exits 0.
 - [ ] `--config` writes `user`, `host`, `ssh_port`, and `dir` to `.tarssh.toml` at the repository root.
@@ -13,3 +13,7 @@
 - [ ] A leading `-` in the first argument is always treated as a verb, never as a remote name.
 - [ ] Running outside a git repository fails clearly.
 - [ ] Tests use the harness or direct CLI invocation and never contact a live target.
+
+## Answer
+
+Resolved 2026-10-18. Commit `06b1561` (merged `28c6261`) implemented `--version` and the interactive `--config` writer. Verified by `tests/test_remote_helper_cli.py`; the live cutover used the installed binary's `--version` and found the existing `.tarssh.toml` already matching the live descriptor, so `--config` was not run against it.

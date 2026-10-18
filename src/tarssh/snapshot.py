@@ -145,7 +145,15 @@ def _fence_specs(
 
 
 def _is_ignored(name: str, specs: Iterable[GitIgnoreSpec]) -> bool:
-    return any(spec.match_file(name) for spec in specs)
+    parts = name.split("/")
+    # Git cannot re-include a file whose parent directory is excluded, but a
+    # bare ``GitIgnoreSpec.match_file`` applies the last matching pattern to the
+    # file's own name, so ``!.gitignore`` would resurrect
+    # ``runtime/.gitignore`` inside an ignored ``runtime/``. Check every parent
+    # directory as a directory first, then the path itself.
+    candidates = ["/".join(parts[:depth]) + "/" for depth in range(1, len(parts))]
+    candidates.append(name)
+    return any(spec.match_file(path) for spec in specs for path in candidates)
 
 
 def _tree_entries(

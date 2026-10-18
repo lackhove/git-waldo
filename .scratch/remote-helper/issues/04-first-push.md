@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Walking skeleton: clone an empty target
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The helper advertises `push` and implements `list for-push` with the real oid.
 - [ ] `git push -u target main` against a missing or empty target creates the directory with `mkdir -p` and deploys the full commit; the target tree equals `HEAD` for non-ignored paths.
@@ -15,3 +15,7 @@
 - [ ] A push when the remote branch already exists is refused with a clear temporary error saying delta pushes are not yet implemented.
 - [ ] Operator output goes to stderr; stdout remains protocol-only.
 - [ ] Tests verify the resulting target filesystem directly and never contact a live target.
+
+## Answer
+
+Resolved 2026-10-18. Commit `4c66446` (merged `424fa24`) implemented the first-use push, the target-side lock, the full deploy, dry-run and per-ref statuses. Verified by `tests/test_first_push.py`; the live cutover's push exercised the installed helper against the live target without deploying because the trees were already equal.
