@@ -6,8 +6,8 @@ import getpass
 import subprocess
 from pathlib import Path
 
-from tarssh.descriptor import Descriptor
-from tarssh.target import Target as RemoteTarget
+from waldo.descriptor import Descriptor
+from waldo.target import Target as RemoteTarget
 
 CONFIG_FILES = {
     "a.txt": (b"alpha\n", 0o644),

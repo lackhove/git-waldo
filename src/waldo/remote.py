@@ -1,4 +1,4 @@
-"""Entry point for ``git-remote-tarssh``.
+"""Entry point for ``git-remote-waldo``.
 
 A leading ``-`` in the first argument always means a tool verb; anything else
 is git's remote-helper protocol (``<remote> <url>``).
@@ -10,19 +10,19 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, TextIO
 
-from tarssh import __version__
-from tarssh.descriptor import repository_root, resolve, write_descriptor
-from tarssh.errors import ProtocolError
-from tarssh.gitcmd import GitStore, git_output
-from tarssh.push import PushSession, push_refs
-from tarssh.snapshot import MAIN_REF, snapshot
-from tarssh.target import Target
+from waldo import __version__
+from waldo.descriptor import repository_root, resolve, write_descriptor
+from waldo.errors import ProtocolError
+from waldo.gitcmd import GitStore, git_output
+from waldo.push import PushSession, push_refs
+from waldo.snapshot import MAIN_REF, snapshot
+from waldo.target import Target
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
-PROG = "git-remote-tarssh"
+PROG = "git-remote-waldo"
 USAGE = "%(prog)s <remote> <url> | --config | --version"
 
 #: Options git may ask about. ``push`` is advertised so git sends the
@@ -42,20 +42,20 @@ def err(line: str) -> None:
 
 
 def ensure_target_remote(root: Path) -> None:
-    """Register ``target`` as ``tarssh::`` unless it already exists."""
+    """Register ``target`` as ``waldo::`` unless it already exists."""
     existing = git_output(["remote", "get-url", "target"], root)
     if existing.returncode == 0:
         err(
-            f"git-remote-tarssh: target remote already exists "
+            f"git-remote-waldo: target remote already exists "
             f"({existing.stdout.strip()}); left untouched"
         )
         return
 
-    added = git_output(["remote", "add", "target", "tarssh::"], root)
+    added = git_output(["remote", "add", "target", "waldo::"], root)
     if added.returncode != 0:
         detail = (added.stderr or added.stdout).strip()
         raise ProtocolError(f"cannot add the target remote: {detail}")
-    err("git-remote-tarssh: added target remote tarssh::")
+    err("git-remote-waldo: added target remote waldo::")
 
 
 def config_mode() -> int:
@@ -64,7 +64,7 @@ def config_mode() -> int:
         message = "--config must run inside a git repository: git rev-parse --show-toplevel failed"
         raise ProtocolError(message)
     path = write_descriptor(root, stdin=sys.stdin, stdout=sys.stderr)
-    err(f"git-remote-tarssh: wrote {path}")
+    err(f"git-remote-waldo: wrote {path}")
     ensure_target_remote(root)
     return 0
 
@@ -81,7 +81,7 @@ def tool_mode(argv: Sequence[str]) -> int:
     parser = _tool_parser()
     args = parser.parse_args(argv)
     if args.version:
-        out(sys.stdout, f"tarssh {__version__}")
+        out(sys.stdout, f"git-waldo {__version__}")
         return 0
     if args.config:
         return config_mode()
@@ -222,7 +222,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         code = exit_code.code
         return code if isinstance(code, int) else 0
     except ProtocolError as error:
-        err(f"git-remote-tarssh: {error}")
+        err(f"git-remote-waldo: {error}")
         return 1
 
 

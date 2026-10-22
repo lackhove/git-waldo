@@ -19,8 +19,9 @@ This is a **single-context** repo: `GLOSSARY.md` and `docs/adr/` live at the rep
 ├── GLOSSARY.md
 ├── docs/adr/
 │   ├── 0001-....md
-│   └── 0002-....md
-├── src/tarssh/      ← the remote helper
+│   ├── 0002-....md
+│   └── 0003-....md
+├── src/waldo/      ← the remote helper
 └── tests/           ← fake-target protocol tests
 ```
 

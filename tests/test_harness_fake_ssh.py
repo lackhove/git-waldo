@@ -210,10 +210,10 @@ def test_the_remote_command_cannot_widen_path(fake_ssh):
 
 
 def test_ssh_options_are_parsed_and_recorded(fake_ssh):
-    result = fake_ssh.run_ssh("-p", "22222", "-o", "BatchMode=yes", "user@fake-target", "true")
+    result = fake_ssh.run_ssh("-p", "2222", "-o", "BatchMode=yes", "user@fake-target", "true")
 
     assert result.returncode == 0
     call = fake_ssh.calls[-1]
     assert call.host == "fake-target"
     assert call.user == "user"
-    assert call.port == 22222
+    assert call.port == 2222

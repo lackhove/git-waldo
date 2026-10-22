@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import sys
+from pathlib import Path
+
+import pytest
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -22,6 +27,18 @@ def _git(args, cwd, env, *, check=True):
     return completed
 
 
+def _descriptor_repo(tmp_path, env, *, host, path, user=None, port=2222):
+    repo = tmp_path / "repo"
+    _git(["init", "-q", str(repo)], tmp_path, env)
+    lines = []
+    if user is not None:
+        lines.append(f'user = "{user}"')
+    lines.extend([f'host = "{host}"', f"ssh_port = {port}", f'dir = "{path}"'])
+    (repo / ".waldo.toml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _git(["remote", "add", "origin", "waldo::"], repo, env)
+    return repo
+
+
 def test_clone_of_an_empty_target_creates_the_snapshot_on_main(
     fake_ssh, target, real_git_env, tmp_path
 ):
@@ -33,7 +50,7 @@ def test_clone_of_an_empty_target_creates_the_snapshot_on_main(
     assert completed.returncode == 0, completed.stderr
     head = _git(["rev-parse", "HEAD"], clone, real_git_env).stdout.strip()
     commit = _git(["cat-file", "commit", head], clone, real_git_env).stdout
-    assert "author tarssh <tarssh@localhost>" in commit
+    assert "author waldo <waldo@localhost>" in commit
     assert f"snapshot of {fake_ssh.host}:{target.path}" in commit
     assert _git(["rev-parse", "HEAD^{tree}"], clone, real_git_env).stdout.strip() == EMPTY_TREE
     assert (
@@ -97,15 +114,51 @@ def test_clone_uses_the_descriptor_only_url_with_environment_overrides(
 ):
     target.create()
     env = dict(real_git_env)
-    env.update(TARSSH_HOST=fake_ssh.host, TARSSH_DIR=str(target.path))
+    env.update(WALDO_HOST=fake_ssh.host, WALDO_DIR=str(target.path))
     clone = tmp_path / "clone-descriptor"
 
-    completed = _git(["clone", "tarssh::", str(clone)], tmp_path, env, check=False)
+    completed = _git(["clone", "waldo::", str(clone)], tmp_path, env, check=False)
 
     assert completed.returncode == 0, completed.stderr
     head = _git(["rev-parse", "HEAD"], clone, real_git_env).stdout.strip()
     assert _git(["rev-parse", "HEAD^{tree}"], clone, real_git_env).stdout.strip() == EMPTY_TREE
     assert len(head) == 40
+
+
+def test_git_finds_the_renamed_helper_for_both_url_forms(fake_ssh, target, real_git_env, tmp_path):
+    target.create()
+
+    full = _git(["ls-remote", fake_ssh.url], tmp_path, real_git_env, check=False)
+
+    assert full.returncode == 0, full.stderr
+    assert "\trefs/heads/main" in full.stdout
+
+    repo = _descriptor_repo(tmp_path, real_git_env, host=fake_ssh.host, path=str(target.path))
+
+    descriptor = _git(["ls-remote", "origin"], repo, real_git_env, check=False)
+
+    assert descriptor.returncode == 0, descriptor.stderr
+    assert "\trefs/heads/main" in descriptor.stdout
+
+
+@pytest.mark.parametrize("url", ["tarssh::", "tarssh://fake-target/srv/config"])
+def test_the_old_scheme_fails_at_gits_transport_lookup(
+    fake_ssh, target, real_git_env, tmp_path, url
+):
+    target.create()
+    # Deliberately hide a helper installed outside the test shim: the point is
+    # that git cannot dispatch tarssh at all, not that this machine lacks one.
+    git_command = shutil.which("git")
+    assert git_command is not None
+    search_path = [str(fake_ssh.client_bin), str(Path(git_command).parent)]
+    search_path.extend(part for part in os.defpath.split(os.pathsep) if part)
+    env = dict(real_git_env)
+    env["PATH"] = os.pathsep.join(search_path)
+
+    completed = _git(["ls-remote", url], tmp_path, env, check=False)
+
+    assert completed.returncode != 0
+    assert "remote-tarssh" in completed.stderr
 
 
 def test_ls_remote_outside_a_repository_prints_the_real_oid_and_symref(
@@ -150,48 +203,40 @@ def test_descriptor_only_url_reaches_the_helper_through_git(
     fake_ssh, target, real_git_env, tmp_path
 ):
     target.create()
-    repo = tmp_path / "repo"
-    _git(["init", "-q", str(repo)], tmp_path, real_git_env)
-    (repo / ".tarssh.toml").write_text(
-        "\n".join(
-            [
-                'user = "root"',
-                f'host = "{fake_ssh.host}"',
-                "ssh_port = 22222",
-                f'dir = "{target.path}"',
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
+    repo = _descriptor_repo(
+        tmp_path,
+        real_git_env,
+        host=fake_ssh.host,
+        path=str(target.path),
+        user="root",
     )
-    _git(["remote", "add", "origin", "tarssh::"], repo, real_git_env)
 
     completed = _git(["ls-remote", "origin"], repo, real_git_env, check=False)
 
     assert completed.returncode == 0, completed.stderr
     assert "\trefs/heads/main" in completed.stdout
     call = fake_ssh.calls[-1]
-    assert (call.host, call.user, call.port) == ("fake-target", "root", 22222)
+    assert (call.host, call.user, call.port) == ("fake-target", "root", 2222)
 
 
-def test_a_bare_tarssh_colon_never_reaches_the_helper(fake_ssh, real_git_env, tmp_path):
-    completed = _git(["ls-remote", "tarssh:"], tmp_path, real_git_env, check=False)
+def test_a_bare_waldo_colon_never_reaches_the_helper(fake_ssh, real_git_env, tmp_path):
+    completed = _git(["ls-remote", "waldo:"], tmp_path, real_git_env, check=False)
 
     assert completed.returncode != 0
-    assert "not a tarssh helper URL" not in completed.stderr
+    assert "not a waldo helper URL" not in completed.stderr
 
 
 def test_a_sha256_repository_is_a_startup_error_naming_both_formats(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     repo = tmp_path / "sha256"
     subprocess.run(["git", "init", "-q", "--object-format=sha256", str(repo)], check=True)
 
     result = make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         url=fake_ssh.url,
-        env=tarssh_env,
+        env=waldo_env,
         cwd=repo,
     ).capabilities()
 

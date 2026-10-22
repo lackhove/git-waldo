@@ -189,7 +189,7 @@ def test_drift_is_rejected_with_the_first_ten_paths_and_a_count(
 
 
 def test_a_non_fast_forward_push_sends_gits_rejection_token(
-    make_driver, fake_ssh, target, real_git_env, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, real_git_env, waldo_env, tmp_path
 ):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
     expected = git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
@@ -202,10 +202,10 @@ def test_a_non_fast_forward_push_sends_gits_rejection_token(
     before = target_tree(target)
 
     result = make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         remote="target",
         url=fake_ssh.url,
-        env=tarssh_env,
+        env=waldo_env,
         cwd=repo,
     ).run("list for-push", f"push {unrelated}:refs/heads/main", "")
 
@@ -257,7 +257,7 @@ def test_dry_run_simulates_the_delta_and_writes_nothing(fake_ssh, target, real_g
 
 
 def test_the_lock_is_held_from_list_for_push_through_the_deploy(
-    make_driver, fake_ssh, target, real_git_env, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, real_git_env, waldo_env, tmp_path
 ):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
     (repo / "a.txt").write_text("changed\n", encoding="utf-8")
@@ -267,10 +267,10 @@ def test_the_lock_is_held_from_list_for_push_through_the_deploy(
     calls_before = len(fake_ssh.calls)
 
     result = make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         remote="target",
         url=fake_ssh.url,
-        env=tarssh_env,
+        env=waldo_env,
         cwd=repo,
     ).run("list for-push", "push refs/heads/main:refs/heads/main", "")
 
@@ -305,16 +305,16 @@ def test_the_lock_is_held_from_list_for_push_through_the_deploy(
 
 
 def test_the_lock_is_released_when_git_never_sends_a_push(
-    make_driver, fake_ssh, target, real_git_env, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, real_git_env, waldo_env, tmp_path
 ):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
     calls_before = len(fake_ssh.calls)
 
     result = make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         remote="target",
         url=fake_ssh.url,
-        env=tarssh_env,
+        env=waldo_env,
         cwd=repo,
     ).run_input("list for-push\n")
 
@@ -335,7 +335,7 @@ def test_the_lock_is_released_when_git_never_sends_a_push(
 
 
 def test_the_helper_never_writes_the_remote_branch(
-    make_driver, fake_ssh, target, real_git_env, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, real_git_env, waldo_env, tmp_path
 ):
     repo = make_pushed_repo(fake_ssh, tmp_path, real_git_env)
     remote_oid = git(["rev-parse", "refs/remotes/target/main"], repo, real_git_env).stdout.strip()
@@ -344,10 +344,10 @@ def test_the_helper_never_writes_the_remote_branch(
     head = git(["rev-parse", "HEAD"], repo, real_git_env).stdout.strip()
 
     result = make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         remote="target",
         url=fake_ssh.url,
-        env=tarssh_env,
+        env=waldo_env,
         cwd=repo,
     ).run("list for-push", "push refs/heads/main:refs/heads/main", "")
 

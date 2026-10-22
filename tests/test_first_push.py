@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 
 import pytest
@@ -84,14 +85,14 @@ def test_dry_run_reports_the_same_counts_and_writes_nothing(
 
 
 def test_dry_run_still_receives_the_push_lines_at_protocol_level(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
-    repo = make_repo(tmp_path, tarssh_env, CONFIG_FILES)
+    repo = make_repo(tmp_path, waldo_env, CONFIG_FILES)
     driver = make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         remote="target",
         url=fake_ssh.url,
-        env=tarssh_env,
+        env=waldo_env,
         cwd=repo,
     )
 
@@ -154,6 +155,26 @@ def test_the_lock_is_taken_before_deployment_and_released_afterwards(
     assert not lock.exists()
 
 
+def test_a_push_takes_a_waldo_named_lock_observed_on_the_target(
+    fake_ssh, target, real_git_env, tmp_path
+):
+    repo = make_repo(tmp_path, real_git_env, CONFIG_FILES)
+    git(["remote", "add", "target", fake_ssh.url], repo, real_git_env)
+
+    completed = push(repo, real_git_env)
+
+    assert completed.returncode == 0, completed.stderr
+    commands = [call.command for call in fake_ssh.calls]
+    locks = [
+        match.group(1)
+        for command in commands
+        if (match := re.fullmatch(r"mkdir (/tmp/waldo-[0-9a-f]{16}\.lock)", command))
+    ]
+    assert len(locks) == 1
+    assert f"rm -rf {locks[0]}" in commands
+    assert not any("/tmp/tarssh-" in command for command in commands)  # noqa: S108
+
+
 def test_a_failed_extraction_still_releases_the_lock(fake_ssh, target, real_git_env, tmp_path):
     repo = make_repo(tmp_path, real_git_env, CONFIG_FILES)
     git(["remote", "add", "target", fake_ssh.url], repo, real_git_env)
@@ -187,13 +208,13 @@ def test_an_existing_lock_is_a_protocol_error_naming_the_path_and_is_not_broken(
 
 
 def test_the_protocol_keeps_stdout_pure_and_operator_counts_on_stderr(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
-    repo = make_repo(tmp_path, tarssh_env, CONFIG_FILES)
+    repo = make_repo(tmp_path, waldo_env, CONFIG_FILES)
     driver = make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         url=fake_ssh.url,
-        env=tarssh_env,
+        env=waldo_env,
         cwd=repo,
     )
 
@@ -202,4 +223,4 @@ def test_the_protocol_keeps_stdout_pure_and_operator_counts_on_stderr(
     result.assert_exit(0)
     result.assert_stdout_lines("ok refs/heads/main", "")
     result.assert_stderr_lines(deploy_message(target, 2, 0))
-    assert target_tree(target) == head_tree(repo, tarssh_env)
+    assert target_tree(target) == head_tree(repo, waldo_env)

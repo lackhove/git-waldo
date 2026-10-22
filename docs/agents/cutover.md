@@ -4,9 +4,9 @@ Use for first use or retargeting. This is the one place a test may touch a live
 host.
 
 1. Install and verify: `uv tool install --force .`, then
-   `command -v git-remote-tarssh` and `git-remote-tarssh --version`.
-2. Descriptor: verify `.tarssh.toml` (or `TARSSH_*`); ensure
-   `git remote get-url target` exists or `git remote add target tarssh::`.
+   `command -v git-remote-waldo` and `git-remote-waldo --version`.
+2. Descriptor: verify `.waldo.toml` (or `WALDO_*`); ensure
+   `git remote get-url target` exists or `git remote add target waldo::`.
 3. Fetch: `git fetch target`. Confirm `target/main` is a snapshot commit.
 4. Drift gate: `git diff --stat HEAD target/main`. A non-empty diff means the
    target changed since the last snapshot. **Stop**: fetch and merge it
@@ -18,5 +18,5 @@ host.
    `already up to date` when the trees already match.
 7. Verify: path-sorted `sha1sum` for every tracked path on both sides
    (`git ls-files` is the list); confirm ignored files survived and no
-   `/tmp/tarssh-*.lock` remains.
+   `/tmp/waldo-*.lock` remains.
 8. On failure: do not force. Fetch the half state, reconcile, then push.

@@ -7,7 +7,7 @@ import subprocess
 
 def _run_shim(fake_ssh, env, stdin: str, *args: str):
     return subprocess.run(
-        [str(fake_ssh.client_bin / "git-remote-tarssh"), *args],
+        [str(fake_ssh.client_bin / "git-remote-waldo"), *args],
         input=stdin,
         text=True,
         capture_output=True,
@@ -35,23 +35,23 @@ def test_shim_can_run_a_module(fake_ssh, git_env, tmp_path):
         encoding="utf-8",
     )
     env = dict(git_env)
-    env["TARSSH_HELPER"] = "module:probe_helper"
+    env["WALDO_HELPER"] = "module:probe_helper"
     env["PYTHONPATH"] = str(tmp_path)
 
-    completed = _run_shim(fake_ssh, env, "", "origin", "tarssh://fake-target/target")
+    completed = _run_shim(fake_ssh, env, "", "origin", "waldo://fake-target/target")
 
     assert completed.returncode == 0
-    assert completed.stdout == "module helper origin tarssh://fake-target/target\n"
+    assert completed.stdout == "module helper origin waldo://fake-target/target\n"
 
 
 def test_shim_without_a_helper_names_the_missing_variable(fake_ssh, git_env):
     env = dict(git_env)
-    env.pop("TARSSH_HELPER")
+    env.pop("WALDO_HELPER")
 
     completed = _run_shim(fake_ssh, env, "list\n", "origin", fake_ssh.url)
 
     assert completed.returncode != 0
-    assert "TARSSH_HELPER" in completed.stderr
+    assert "WALDO_HELPER" in completed.stderr
 
 
 def test_real_git_discovers_the_shim_and_lists_refs(fake_ssh, git_env, stub_oid, tmp_path):

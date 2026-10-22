@@ -15,16 +15,16 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tarssh.errors import ProtocolError
+from waldo.errors import ProtocolError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
 IDENT = {
-    "GIT_AUTHOR_NAME": "tarssh",
-    "GIT_AUTHOR_EMAIL": "tarssh@localhost",
-    "GIT_COMMITTER_NAME": "tarssh",
-    "GIT_COMMITTER_EMAIL": "tarssh@localhost",
+    "GIT_AUTHOR_NAME": "waldo",
+    "GIT_AUTHOR_EMAIL": "waldo@localhost",
+    "GIT_COMMITTER_NAME": "waldo",
+    "GIT_COMMITTER_EMAIL": "waldo@localhost",
 }
 
 
@@ -60,12 +60,11 @@ class GitStore:
             found = object_format.stdout.strip()
             if found != "sha1":
                 raise ProtocolError(
-                    f"unsupported repository object format {found}: "
-                    f"tarssh requires sha1, not sha256"
+                    f"unsupported repository object format {found}: waldo requires sha1, not sha256"
                 )
             return cls(git_dir)
 
-        directory = Path(tempfile.mkdtemp(prefix="tarssh-objects-"))
+        directory = Path(tempfile.mkdtemp(prefix="waldo-objects-"))
         init = git_output(
             ["init", "--quiet", "--bare", "--object-format=sha1", str(directory)],
             cwd=cwd,
@@ -141,7 +140,7 @@ class GitStore:
 
     def write_tree(self, entries: Iterable[tuple[str, str, str]] = ()) -> str:
         """Assemble a tree through a temporary index, never ``git add``."""
-        index_dir = Path(tempfile.mkdtemp(prefix="tarssh-index-"))
+        index_dir = Path(tempfile.mkdtemp(prefix="waldo-index-"))
         try:
             env = {"GIT_INDEX_FILE": str(index_dir / "index")}
             for mode, oid, path in entries:

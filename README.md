@@ -1,9 +1,9 @@
-# tarssh
+# git-waldo
 
-**GitOps for devices that only have SSH and busybox.**
+**Agentless GitOps for appliances: `git push` to a host that has no git.**
 
-`tarssh` is a git remote helper. It turns a directory on a minimal SSH host into
-a normal git remote, so you can use plain `git fetch`, `git merge`, and
+`git-waldo` is a git remote helper. It turns a directory on a minimal SSH host
+into a normal git remote, so you can use plain `git fetch`, `git merge`, and
 `git push` to pull the device's configuration into git and deploy changes back.
 
 The device does **not** need git, rsync, SFTP, an agent, or a sync daemon. It
@@ -29,7 +29,7 @@ Configuration for an appliance usually lives in one of two bad shapes:
 - a full configuration-management stack that needs an agent, a server, and more
   runtime than the device has.
 
-`tarssh` gives you the git workflow without putting git on the device:
+`git-waldo` gives you the git workflow without putting git on the device:
 
 - **Desired state is a git repo.** Review, branch, commit, and revert like any
   other code.
@@ -87,27 +87,27 @@ From a checkout of this repository:
 uv tool install .
 ```
 
-The distribution name is `tarssh`, so once it is published the same install is
-`uv tool install tarssh`.
+The distribution name is `git-waldo`, so once it is published the same install is
+`uv tool install git-waldo`.
 
 Make sure the tool directory is on `PATH` so git can discover the helper:
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"   # add to your shell profile
-git-remote-tarssh --version
+git-remote-waldo --version
 ```
 
 Git finds helpers as `git-remote-<scheme>`; the executable is
-`git-remote-tarssh`.
+`git-remote-waldo`.
 
 ## Agent skill
 
-`skills/tarssh/` is a self-contained skill that teaches an agent to operate a
+`skills/waldo/` is a self-contained skill that teaches an agent to operate a
 config repo with this tool: the loop, the fence, hard rules, and recovery. Link
 it into your agent's skill directory:
 
 ```sh
-ln -s "$PWD/skills/tarssh" ~/.agents/skills/tarssh
+ln -s "$PWD/skills/waldo" ~/.agents/skills/waldo
 ```
 
 For a config repo that loads project skills from `.agents/skills/`, link or
@@ -122,11 +122,11 @@ In the repository that should own the device's configuration:
 git init -b main
 # ...add the files you want the device to have...
 
-git-remote-tarssh --config
+git-remote-waldo --config
 ```
 
 `--config` asks for the SSH user, host, port, and target directory, writes
-`.tarssh.toml`, and registers the remote as `target`.
+`.waldo.toml`, and registers the remote as `target` (`waldo::`).
 
 The first push creates the target directory if it is missing and deploys the
 whole commit:
@@ -151,32 +151,32 @@ Because `-u` set the upstream, bare `git pull` and `git push` work too.
 
 ## The target descriptor
 
-`.tarssh.toml` lives at the repository root and is gitignored:
+`.waldo.toml` lives at the repository root and is gitignored:
 
 ```toml
 user = "root"
-host = "192.168.1.20"
-ssh_port = 22222
-dir = "/mnt/data/supervisor/homeassistant"
+host = "host.example"
+ssh_port = 2222
+dir = "/srv/app"
 ```
 
-A committed `.tarssh.example.toml` is the furniture new clones copy. Fields are
+A committed `.waldo.example.toml` is the furniture new clones copy. Fields are
 resolved independently, most specific first:
 
-1. `TARSSH_USER`, `TARSSH_HOST`, `TARSSH_SSH_PORT`, `TARSSH_DIR`
+1. `WALDO_USER`, `WALDO_HOST`, `WALDO_SSH_PORT`, `WALDO_DIR`
 2. the remote URL
-3. `.tarssh.toml`
+3. `.waldo.toml`
 4. defaults: local username, port 22; `dir` is required
 
 A full URL carries its own target and is useful for one-off inspection or
 retargeting a clone:
 
 ```sh
-git ls-remote 'tarssh://root@192.168.1.20:22222/mnt/data/supervisor/homeassistant'
-git remote set-url target 'tarssh://root@192.168.1.20:22222/mnt/data/supervisor/homeassistant'
+git ls-remote 'waldo://root@host.example:2222/srv/app'
+git remote set-url target 'waldo://root@host.example:2222/srv/app'
 ```
 
-When a full URL and `.tarssh.toml` disagree, the helper uses the more specific
+When a full URL and `.waldo.toml` disagree, the helper uses the more specific
 value and prints one warning naming both. The committed file only has to be
 right for new clones.
 
@@ -198,7 +198,7 @@ secrets.yaml
 *.db*
 .storage/*
 runtime/
-.tarssh.toml
+.waldo.toml
 ```
 
 ## What a push will and will not do
@@ -256,3 +256,4 @@ Design and decisions:
 - `docs/adr/` — the target-is-a-git-remote model and the tool/config split
 - `docs/agents/git-helper-protocol.md` — the git-side protocol facts
 - `docs/agents/cutover.md` — pointing a config repo at a live target
+- `docs/agents/migrate-to-waldo.md` — migrating a config repo from the old name

@@ -16,7 +16,7 @@
 
 ## Answer
 
-Resolved 2026-10-18. Installed `tarssh 0.1.0` from this worktree with `uv tool install --force`; `command -v git-remote-tarssh` and `git-remote-tarssh --version` both answered from `~/.local/bin`. The config repo's `.tarssh.toml` already matched the live descriptor (`user@host.example:22222`, `/srv/config`); no `target` remote existed, so it was added as `tarssh::`.
+Resolved 2026-10-18. Installed `tarssh 0.1.0` from this worktree with `uv tool install --force`; `command -v git-remote-tarssh` and `git-remote-tarssh --version` both answered from `~/.local/bin`. The config repo's `.tarssh.toml` already matched the live descriptor (`user@host.example:2222`, `/srv/config`); no `target` remote existed, so it was added as `tarssh::`.
 
 `git fetch target` produced root snapshot `bbbbbbbf8cabafbb8bace2103a8b16f8fe1890fc`, ident `tarssh <tarssh@localhost>`, subject `snapshot of host.example:/srv/config`. The safety diff against config `HEAD` (`aaaaaaa`) was first non-empty: the fence leaked `extensions/example_component/.idea/.gitignore` because `pathspec` let `!.gitignore` re-include a file inside an ignored directory. Git forbids that re-inclusion; `snapshot._is_ignored` now checks each parent directory with trailing-slash semantics before the file itself, with regression test `test_a_negation_cannot_reinclude_a_file_under_an_ignored_directory`. After reinstalling and re-fetching from a deleted local remote-tracking ref, `git diff --stat HEAD target/main` was empty, so the target had not drifted.
 

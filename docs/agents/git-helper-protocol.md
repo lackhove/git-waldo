@@ -6,8 +6,8 @@ The executable driver is `tests/harness.py`; see `tests/README.md`.
 
 - `capabilities` is always git's first stdin command. Answer with `fetch`,
   `push`, `option`, then a blank line. Do not print capabilities unsolicited.
-- `tarssh::` arrives as `<remote> ""`; `tarssh://...` arrives as
-  `<remote> <url>`. A bare `tarssh:` never reaches the helper.
+- `waldo::` arrives as `<remote> ""`; `waldo://...` arrives as
+  `<remote> <url>`. A bare `waldo:` never reaches the helper.
 - Fetch sends `list`, then `fetch <oid> <name>` lines in a batch ending with a
   blank line. The snapshot objects are written during `list`; answer the fetch
   batch with one blank line. `git clone` always sends `fetch`; a normal fetch

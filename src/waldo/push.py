@@ -18,13 +18,13 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from tarssh.errors import ProtocolError
-from tarssh.snapshot import MAIN_REF, remote_ref, snapshot
+from waldo.errors import ProtocolError
+from waldo.snapshot import MAIN_REF, remote_ref, snapshot
 
 if TYPE_CHECKING:
-    from tarssh.descriptor import Descriptor
-    from tarssh.gitcmd import GitStore
-    from tarssh.target import Target
+    from waldo.descriptor import Descriptor
+    from waldo.gitcmd import GitStore
+    from waldo.target import Target
 
 #: Keep every remote command comfortably below ARG_MAX.
 CHUNK = 500
@@ -32,7 +32,7 @@ DRIFT_LIMIT = 10
 
 
 def _err(message: str) -> None:
-    sys.stderr.write(f"git-remote-tarssh: {message}\n")
+    sys.stderr.write(f"git-remote-waldo: {message}\n")
     sys.stderr.flush()
 
 

@@ -1,4 +1,4 @@
-# Sync tool
+# git-waldo
 
 A git remote helper that makes a host with no git a first-class git remote, plus the conventions that keep a shipped config both reviewable and recoverable.
 
@@ -7,6 +7,10 @@ A git remote helper that makes a host with no git a first-class git remote, plus
 **Target**:
 The filesystem tree on the remote host that the tool treats as a git working tree.
 _Avoid_: Remote, server, the host, the host OS
+
+**Appliance**:
+The class of device whose configuration directory is the target. It runs no git and no agent.
+_Avoid_: Server, edge node, fleet member
 
 **Config repo**:
 The repository whose tracked files are deployed to the target.
@@ -36,7 +40,7 @@ A file tracked in the config repo that the application on the target does not re
 _Avoid_: Metadata, tooling file
 
 **Remote helper**:
-The executable git invokes for a transport it cannot handle itself. git finds it as `git-remote-<scheme>`; ours is `git-remote-tarssh`.
+The executable git invokes for a transport it cannot handle itself. git finds it as `git-remote-<scheme>`; ours is `git-remote-waldo`.
 _Avoid_: Transport plugin, driver
 
 **Fence**:
@@ -44,7 +48,7 @@ The `.gitignore` tracked in the config repo. It decides which target paths the t
 _Avoid_: Exclude list, filter, allowlist
 
 **Target descriptor**:
-The gitignored `.tarssh.toml` in the config repo, recording user, host, SSH port and directory for the target. Committed as `.tarssh.example.toml`; overridden by the remote URL, then by `TARSSH_*` variables.
+The gitignored `.waldo.toml` in the config repo, recording user, host, SSH port and directory for the target. Committed as `.waldo.example.toml`; overridden by the remote URL, then by `WALDO_*` variables.
 _Avoid_: Config file, settings, target config
 
 **Delta**:

@@ -2,7 +2,7 @@
 
 Everything here is test infrastructure. The helper under test is supplied by
 the test, so the same harness serves both the stub helper and the real
-`tarssh.remote`.
+`waldo.remote`.
 
 ## Fixtures (`conftest.py`)
 
@@ -13,11 +13,11 @@ the test, so the same harness serves both the stub helper and the real
 | `make_driver` | builds a `ProtocolDriver` for any argv; defaults to the stub helper |
 | `driver` | `ProtocolDriver` for `tests/stub_helper.py` |
 | `helper_env` | `os.environ` with the fake SSH shim first on `PATH` |
-| `git_env` | `helper_env` plus `TARSSH_HELPER`, for real `git` commands |
+| `git_env` | `helper_env` plus `WALDO_HELPER`, for real `git` commands |
 | `stub_command` / `stub_oid` | the stub helper argv and the oid it advertises |
-| `real_helper` | argv for the real helper: `python -m tarssh.remote` |
-| `tarssh_env` | `fake_ssh.env()` with every `TARSSH_*` override removed |
-| `real_git_env` | `tarssh_env` plus `TARSSH_HELPER=module:tarssh.remote` |
+| `real_helper` | argv for the real helper: `python -m waldo.remote` |
+| `waldo_env` | `fake_ssh.env()` with every `WALDO_*` override removed |
+| `real_git_env` | `waldo_env` plus `WALDO_HELPER=module:waldo.remote` |
 
 ## Using it
 
@@ -30,7 +30,7 @@ def test_list(driver, stub_oid):
 
 
 def test_real_helper(make_driver):
-    driver = make_driver([sys.executable, "-m", "tarssh.remote"])
+    driver = make_driver([sys.executable, "-m", "waldo.remote"])
     ...
 ```
 
@@ -42,7 +42,7 @@ busybox flag starts a failing test.
 
 `fake_ssh.run_remote("find ...")` exercises the seam directly. Helpers find it
 through `fake_ssh.env()`: `ssh`, `scp`, `sftp`, `rsync` and
-`git-remote-tarssh` shims live in `fake_ssh.client_bin`.
+`git-remote-waldo` shims live in `fake_ssh.client_bin`.
 
-`git_env` is enough for `git ls-remote <target.url>`; `TARSSH_HELPER` is either
-a command line or `module:tarssh.remote`.
+`git_env` is enough for `git ls-remote <target.url>`; `WALDO_HELPER` is either
+a command line or `module:waldo.remote`.

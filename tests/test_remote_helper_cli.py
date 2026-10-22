@@ -11,17 +11,17 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-import tarssh
+import waldo
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-TOML_NAME = ".tarssh.toml"
+TOML_NAME = ".waldo.toml"
 
 
 def _run(*args: str, cwd: Path | None = None, stdin: str = "") -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "tarssh.remote", *args],
+        [sys.executable, "-m", "waldo.remote", *args],
         input=stdin,
         text=True,
         capture_output=True,
@@ -45,7 +45,7 @@ def test_version_verb_prints_the_tool_version():
     completed = _run("--version")
 
     assert completed.returncode == 0
-    assert tarssh.__version__ in completed.stdout
+    assert waldo.__version__ in completed.stdout
     assert completed.stderr == ""
 
 
@@ -71,7 +71,7 @@ def test_helper_mode_without_a_url_fails_clearly():
     [
         ("--version", "extra"),
         ("--config", "extra"),
-        ("origin", "tarssh::", "extra"),
+        ("origin", "waldo::", "extra"),
         ("-",),
     ],
 )
@@ -85,19 +85,17 @@ def test_extra_arguments_exit_2_with_usage(args):
 
 def test_the_installed_console_script_points_at_the_helper():
     scripts = [
-        entry
-        for entry in entry_points(group="console_scripts")
-        if entry.name == "git-remote-tarssh"
+        entry for entry in entry_points(group="console_scripts") if entry.name == "git-remote-waldo"
     ]
 
-    assert [entry.value for entry in scripts] == ["tarssh.remote:main"]
+    assert [entry.value for entry in scripts] == ["waldo.remote:main"]
 
 
 def test_version_verb_prints_the_installed_package_version():
     completed = _run("--version")
 
     assert completed.returncode == 0
-    assert completed.stdout == f"tarssh {version('tarssh')}\n"
+    assert completed.stdout == f"git-waldo {version('git-waldo')}\n"
     assert completed.stderr == ""
 
 
@@ -129,7 +127,7 @@ def test_config_writes_the_descriptor_at_the_repo_root_from_a_subdirectory(tmp_p
         "dir": "/srv/config",
     }
     assert not (subdirectory / TOML_NAME).exists()
-    assert _git(repo, "remote", "get-url", "target") == "tarssh::"
+    assert _git(repo, "remote", "get-url", "target") == "waldo::"
 
 
 def test_config_offers_the_local_user_and_port_22_as_defaults(tmp_path):
@@ -212,7 +210,7 @@ def test_config_overwrites_after_confirmation_using_existing_values_as_defaults(
 
 def test_config_leaves_an_existing_target_remote_untouched_and_says_so(tmp_path):
     repo = _repo(tmp_path)
-    existing = "tarssh://user@elsewhere:2222/srv/config"
+    existing = "waldo://user@elsewhere:2222/srv/config"
     subprocess.run(["git", "remote", "add", "target", existing], cwd=repo, check=True)
 
     completed = _run(

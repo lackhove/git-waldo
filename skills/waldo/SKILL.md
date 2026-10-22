@@ -1,9 +1,9 @@
 ---
-name: tarssh
-description: Deploy a config repo to a minimal SSH host through the tarssh git remote named target. Use when fetching, merging, or pushing target, reconciling target drift, or recovering from a rejected or interrupted deploy.
+name: waldo
+description: Deploy a config repo to a minimal SSH host through the waldo git remote named target. Use when fetching, merging, or pushing target, reconciling target drift, or recovering from a rejected or interrupted deploy.
 ---
 
-# tarssh
+# waldo
 
 `target` is a normal git remote for a directory on a host that has no git, no
 rsync and no SFTP. `git fetch target` records that directory as a snapshot
@@ -23,7 +23,7 @@ wrong.
 |---|---|
 | **target** | The remote directory treated as a git working tree. _Avoid_: remote, server |
 | **config repo** | The repository whose tracked files are deployed. _Avoid_: mirror |
-| **snapshot** | The commit built from the target's working tree, authored by `tarssh`. _Avoid_: sync commit, mirror commit |
+| **snapshot** | The commit built from the target's working tree, authored by `waldo`. _Avoid_: sync commit, mirror commit |
 | **remote branch** | `refs/remotes/target/main`, the target state the config repo last saw. _Avoid_: shadow branch |
 | **clean target** | The target's tree equals the remote branch's tree; the push precondition. _Avoid_: in sync |
 | **target drift** | Any difference between the target and the remote branch. _Avoid_: dirty remote, conflict |
@@ -39,16 +39,16 @@ wrong.
 3. Confirm the tool and remote:
 
    ```sh
-   git-remote-tarssh --version
-   git remote get-url target      # tarssh:: or tarssh://...
+   git-remote-waldo --version
+   git remote get-url target      # waldo:: or waldo://...
    ```
 
 4. Run `git status --short`. A push deploys commits, not the working tree;
    finish or stash local work first.
 
-The target is resolved per field from `TARSSH_*` variables, then the remote URL,
-then the gitignored `.tarssh.toml`, then defaults (local user, port 22; `dir` is
-required). A warning that the URL disagrees with `.tarssh.toml` means two
+The target is resolved per field from `WALDO_*` variables, then the remote URL,
+then the gitignored `.waldo.toml`, then defaults (local user, port 22; `dir` is
+required). A warning that the URL disagrees with `.waldo.toml` means two
 targets are in play: stop and confirm the host before pushing.
 
 ## The loop
@@ -78,17 +78,17 @@ operator first.
 ### First use
 
 ```sh
-uv tool install tarssh
-git-remote-tarssh --config          # writes .tarssh.toml, adds the target remote
+uv tool install git-waldo
+git-remote-waldo --config          # writes .waldo.toml, adds the target remote
 git push -u target main             # creates the directory, deploys everything
 ```
 
 The first push is the only one that deploys the whole commit; a missing target
-directory is created, and an empty one is legitimate. `.tarssh.toml` is
-gitignored; `.tarssh.example.toml` is committed furniture.
+directory is created, and an empty one is legitimate. `.waldo.toml` is
+gitignored; `.waldo.example.toml` is committed furniture.
 
 To retarget an existing clone, use
-`git remote set-url target 'tarssh://user@host:port/absolute/path'`, not a
+`git remote set-url target 'waldo://user@host:port/absolute/path'`, not a
 hand-edited descriptor.
 
 ## The fence
@@ -138,14 +138,14 @@ Stop, keep the state, and report to the operator when:
 
 - drift appears that you cannot explain from the config repo's history;
 - a non-fast-forward survives a fetch and merge;
-- a lock is reported at `/tmp/tarssh-<hash>.lock` — never delete it yourself; a
+- a lock is reported at `/tmp/waldo-<hash>.lock` — never delete it yourself; a
   running push may own it, and a stale lock is the operator's call;
 - the target is missing or unreadable, or the descriptor is incomplete;
 - the target has a FIFO, socket, device node, unreadable file, or a non-UTF-8
   name (the helper names the path and refuses);
-- the repository is SHA-256 (tarssh requires SHA-1);
+- the repository is SHA-256 (waldo requires SHA-1);
 - a tracked secret is found, or a fence change is requested to silence drift;
-- the URL and `.tarssh.toml` name different hosts.
+- the URL and `.waldo.toml` name different hosts.
 
 Everything except drift reconciliation and interrupted-push recovery is an
 operator decision.

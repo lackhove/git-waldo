@@ -15,7 +15,7 @@ HEX_OID = re.compile(r"^[0-9a-f]{40}$")
 
 def _driver(make_driver, tmp_path, url, env, cwd=None):
     return make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         url=url,
         env=env,
         cwd=cwd or tmp_path,
@@ -33,13 +33,13 @@ def _git(repo, *args):
 
 
 def test_list_advertises_a_real_root_snapshot_of_an_empty_target(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     repo = tmp_path / "repo"
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
 
-    result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env, cwd=repo).list()
+    result = _driver(make_driver, tmp_path, fake_ssh.url, waldo_env, cwd=repo).list()
 
     result.assert_exit(0)
     assert result.stderr_lines == []
@@ -51,18 +51,18 @@ def test_list_advertises_a_real_root_snapshot_of_an_empty_target(
     assert "?" not in result.stdout
 
     commit = _git(repo, "cat-file", "commit", oid)
-    assert "author tarssh <tarssh@localhost>" in commit
-    assert "committer tarssh <tarssh@localhost>" in commit
+    assert "author waldo <waldo@localhost>" in commit
+    assert "committer waldo <waldo@localhost>" in commit
     assert commit.splitlines()[-1] == f"snapshot of {fake_ssh.host}:{target.path}"
     assert _git(repo, "rev-parse", f"{oid}^{{tree}}") == EMPTY_TREE
 
 
 def test_a_missing_target_fails_list_naming_the_url_and_path(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.remove()
 
-    result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env).list()
+    result = _driver(make_driver, tmp_path, fake_ssh.url, waldo_env).list()
 
     assert result.exit_code != 0
     assert result.stdout == ""
@@ -72,12 +72,12 @@ def test_a_missing_target_fails_list_naming_the_url_and_path(
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permission bits")
 def test_an_unreadable_target_fails_list_naming_the_url_and_path(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.populate({"a.txt": "x"})
     target.make_unreadable()
 
-    result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env).list()
+    result = _driver(make_driver, tmp_path, fake_ssh.url, waldo_env).list()
 
     assert result.exit_code != 0
     assert result.stdout == ""
@@ -86,16 +86,16 @@ def test_an_unreadable_target_fails_list_naming_the_url_and_path(
 
 
 def test_an_unchanged_tree_advertises_the_existing_remote_branch(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     repo = tmp_path / "repo"
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     driver = make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         remote="upstream",
         url=fake_ssh.url,
-        env=tarssh_env,
+        env=waldo_env,
         cwd=repo,
     )
     first = driver.list()
@@ -113,7 +113,7 @@ def test_an_unchanged_tree_advertises_the_existing_remote_branch(
 
 
 def test_a_changed_tree_is_parented_on_the_remote_branch(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     repo = tmp_path / "repo"
@@ -154,7 +154,7 @@ def test_a_changed_tree_is_parented_on_the_remote_branch(
         check=True,
     )
 
-    result = _driver(make_driver, tmp_path, fake_ssh.url, tarssh_env, cwd=repo).list()
+    result = _driver(make_driver, tmp_path, fake_ssh.url, waldo_env, cwd=repo).list()
 
     result.assert_exit(0)
     oid = result.stdout_lines[1].split(" ")[0]

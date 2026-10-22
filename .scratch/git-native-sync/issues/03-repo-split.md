@@ -58,7 +58,7 @@ Verified against git's own semantics: `.*` ignores `.uuid` and the directory `.s
 
 ### Execution order
 
-1. `mv ~/code/config-repo ~/code/tarssh`; start the session there.
+1. `mv /path/to/config-repo /path/to/tool-repo`; start the session there.
 2. In the tool repo: `git archive HEAD:config | tar -x -C <new config repo>` to seed the 16 content files.
 3. On the target: delete the dead root `photo.jpg`, and deploy the new fence as `.gitignore` (write it over SSH into `/srv/config/.gitignore`).
 4. New repo: `git init -b main`, add the fence, commit the import; verify tree equality (see acceptance criteria).
@@ -69,8 +69,8 @@ Verified against git's own semantics: `.*` ignores `.uuid` and the directory `.s
 
 - Both repos have one commit (`tarssh`: its existing history; config: two).
 - `sha1sum` of the 17 mirrored paths on target and in the config repo's import commit agree exactly.
-- `git -C ~/code/tarssh ls-files` shows no path under `config/`, and `rg config/` finds no stale path references in `AGENTS.md` or `the bridge`.
-- The bridge still deploys: `uv run the bridge --repo ~/code/config-repo push --dry-run`-equivalent listing shows nothing to push, and a trivial test edit round-trips.
+- `git -C /path/to/tool-repo ls-files` shows no path under `config/`, and `rg config/` finds no stale path references in `AGENTS.md` or `the bridge`.
+- The bridge still deploys: `uv run the bridge --repo /path/to/config-repo push --dry-run`-equivalent listing shows nothing to push, and a trivial test edit round-trips.
 - `git check-ignore` in the config repo agrees with the probe: `.uuid` ignored, `.state/person` tracked, `.tarssh.toml` ignored, `.tarssh.example.toml` tracked.
 
 ## Execution (2026-10-18)
@@ -81,4 +81,4 @@ Done as planned, with three corrections found while doing it:
 - The bridge only sends *uncommitted* changes — it predates refs and has no idea what was deployed — so it cannot deploy committed-but-undeployed state. The furniture was therefore written once with the same tar pipe, leaving the target equal to the config repo's `HEAD`.
 - `the bridge` carried a latent bug from before the split: `-y` was parsed into `args.y` while the code read `args.yes`, so `push -y` always crashed. Now `dest="yes"`.
 
-Results: tool repo `~/code/tarssh` (`5ee7309` design, `7d8c34a` split); config repo `~/code/config-repo` (import, then furniture; 18 tracked files); target tree equal to the config repo's `HEAD` verified by `sha1sum` on both sides; `the config check` passed; the `research/prior-art` worktree was repaired after the directory move; symmetric ownership preserved on the target (`tar -o`) with everything root-owned.
+Results: tool repo `/path/to/tool-repo` (`5ee7309` design, `7d8c34a` split); config repo `/path/to/config-repo` (import, then furniture; 18 tracked files); target tree equal to the config repo's `HEAD` verified by `sha1sum` on both sides; `the config check` passed; the `research/prior-art` worktree was repaired after the directory move; symmetric ownership preserved on the target (`tar -o`) with everything root-owned.

@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING
 
 from pathspec import GitIgnoreSpec
 
-from tarssh.errors import ProtocolError
+from waldo.errors import ProtocolError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from tarssh.descriptor import Descriptor
-    from tarssh.gitcmd import GitStore
-    from tarssh.target import Target
+    from waldo.descriptor import Descriptor
+    from waldo.gitcmd import GitStore
+    from waldo.target import Target
 
 MAIN_REF = "refs/heads/main"
 GITIGNORE = ".gitignore"

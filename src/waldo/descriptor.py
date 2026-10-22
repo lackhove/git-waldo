@@ -1,7 +1,7 @@
-"""Resolve the target descriptor: ``TARSSH_*`` > URL > ``.tarssh.toml`` > defaults.
+"""Resolve the target descriptor: ``WALDO_*`` > URL > ``.waldo.toml`` > defaults.
 
 The four layers describe one target. Each field is resolved independently so a
-one-off override (``TARSSH_SSH_PORT=22222``) can combine with a committed host
+one-off override (``WALDO_SSH_PORT=2222``) can combine with a committed host
 and directory.
 """
 
@@ -15,26 +15,27 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 from urllib.parse import unquote, urlsplit
 
-from tarssh.errors import ProtocolError
-from tarssh.gitcmd import git_output
+from waldo.errors import ProtocolError
+from waldo.gitcmd import git_output
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-TOML_NAME = ".tarssh.toml"
+TOML_NAME = ".waldo.toml"
+LEGACY_TOML_NAME = ".tarssh.toml"
 DEFAULT_PORT = 22
 MAX_PORT = 65535
 ENV_FIELDS = {
-    "user": "TARSSH_USER",
-    "host": "TARSSH_HOST",
-    "ssh_port": "TARSSH_SSH_PORT",
-    "dir": "TARSSH_DIR",
+    "user": "WALDO_USER",
+    "host": "WALDO_HOST",
+    "ssh_port": "WALDO_SSH_PORT",
+    "dir": "WALDO_DIR",
 }
 
 
 @dataclass(frozen=True)
 class UrlTarget:
-    """The fields a ``tarssh://`` URL carries explicitly."""
+    """The fields a ``waldo://`` URL carries explicitly."""
 
     user: str | None
     host: str
@@ -63,15 +64,15 @@ class Resolved:
 
 
 def parse_remote_url(url: str) -> UrlTarget | None:
-    """Parse ``tarssh://`` or the descriptor-only ``tarssh::`` form.
+    """Parse ``waldo://`` or the descriptor-only ``waldo::`` form.
 
-    A bare ``tarssh:`` is not a helper URL: git parses it as scp-like syntax and
-    tries to SSH to a host called ``tarssh``. We refuse it rather than guessing.
+    A bare ``waldo:`` is not a helper URL: git parses it as scp-like syntax and
+    tries to SSH to a host called ``waldo``. We refuse it rather than guessing.
     """
-    if url in ("", "tarssh::"):
+    if url in ("", "waldo::"):
         return None
-    if not url.startswith("tarssh://"):
-        raise ProtocolError(f"not a tarssh helper URL: {url!r} (use tarssh://... or tarssh::)")
+    if not url.startswith("waldo://"):
+        raise ProtocolError(f"not a waldo helper URL: {url!r} (use waldo://... or waldo::)")
 
     try:
         parts = urlsplit(url)
@@ -79,7 +80,7 @@ def parse_remote_url(url: str) -> UrlTarget | None:
         port = parts.port
     except ValueError as error:
         raise ProtocolError(f"invalid URL {url}: {error}") from error
-    if parts.scheme != "tarssh":
+    if parts.scheme != "waldo":
         raise ProtocolError(f"unsupported URL scheme in {url!r}")
     if not host:
         raise ProtocolError(f"missing host in URL: {url}")
@@ -162,7 +163,7 @@ def _disagreement_line(
     """One line for the URL fields whose effective value contradicts the file.
 
     A field appears only when the URL carries it explicitly, its effective value
-    still comes from the URL (no ``TARSSH_*`` override), and the file says
+    still comes from the URL (no ``WALDO_*`` override), and the file says
     something different. Precedence is unchanged; this is reporting only.
     """
     differences = [
@@ -188,8 +189,9 @@ def resolve(
 ) -> Resolved:
     """Resolve every field of the target for one helper invocation."""
     parsed = parse_remote_url(url)
-    shown_url = url or "tarssh::"
-    fields, _ = read_toml(root) if (root := repository_root(cwd)) else ({}, None)
+    shown_url = url or "waldo::"
+    root = repository_root(cwd)
+    fields = read_toml(root)[0] if root is not None else {}
     env = _environment(environ)
 
     url_user = parsed.user if parsed else None
@@ -222,8 +224,18 @@ def resolve(
     file_host = fields.get("host")
     host = env_host or url_host or (file_host if isinstance(file_host, str) else None)
     if not host:
+        if (
+            root is not None
+            and (root / LEGACY_TOML_NAME).is_file()
+            and not (root / TOML_NAME).is_file()
+        ):
+            raise ProtocolError(
+                f"{LEGACY_TOML_NAME} exists but {TOML_NAME} does not: this project was renamed "
+                f"from tarssh to git-waldo; rename the descriptor to {TOML_NAME} "
+                f"(URL: {shown_url})"
+            )
         raise ProtocolError(
-            f"no target host: set TARSSH_HOST, use tarssh://host/..., "
+            f"no target host: set WALDO_HOST, use waldo://host/..., "
             f"or add host to {TOML_NAME} (URL: {shown_url})"
         )
 
@@ -248,9 +260,7 @@ def resolve(
     file_dir = fields.get("dir")
     path = env_dir or url_path or (file_dir if isinstance(file_dir, str) else None)
     if not path:
-        raise ProtocolError(
-            f"no target directory: set TARSSH_DIR or {TOML_NAME} (URL: {shown_url})"
-        )
+        raise ProtocolError(f"no target directory: set WALDO_DIR or {TOML_NAME} (URL: {shown_url})")
     if not path.startswith("/"):
         raise ProtocolError(f"target directory is not absolute: {path!r} (URL: {shown_url})")
 
@@ -296,7 +306,7 @@ def _existing(fields: Mapping[str, object], name: str, kind: type) -> object | N
 
 
 def write_descriptor(root: Path, *, stdin: TextIO, stdout: TextIO) -> Path:
-    """Interactively write ``.tarssh.toml`` at the config repo root.
+    """Interactively write ``.waldo.toml`` at the config repo root.
 
     Prompts go to ``stdout`` (the caller passes stderr) and answers are read
     line by line, so piped stdin drives the same code path as a terminal.

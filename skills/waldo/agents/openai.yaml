@@ -1,5 +1,5 @@
 interface:
-  display_name: "tarssh"
+  display_name: "waldo"
   short_description: "Deploy a config repo over SSH with git"
 policy:
   allow_implicit_invocation: true

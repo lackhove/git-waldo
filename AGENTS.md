@@ -1,13 +1,13 @@
-# tarssh
+# git-waldo
 
 A git remote helper. It makes an SSH host with **no git** — only busybox `find` and `tar` — a normal git remote: `git fetch` records the host's directory as a snapshot commit, `git merge` merges it, `git push` deploys the commit delta. The tool knows nothing about any particular application; it is generic.
 
-Design: `docs/design/spec.md` (settled, traceable to ADRs and tickets). Model: `docs/adr/0001-target-is-a-git-remote.md`. Split: `docs/adr/0002-tool-and-config-are-separate-repos.md`. Vocabulary: `GLOSSARY.md`. Git-side protocol facts: `docs/agents/git-helper-protocol.md`.
+Design: `docs/design/spec.md` (settled, traceable to ADRs and tickets). Model: `docs/adr/0001-target-is-a-git-remote.md`. Split: `docs/adr/0002-tool-and-config-are-separate-repos.md`. Name: `docs/adr/0003-the-project-is-called-git-waldo.md`. Vocabulary: `GLOSSARY.md`. Git-side protocol facts: `docs/agents/git-helper-protocol.md`.
 
 ## Layout
 
-- `src/tarssh/` — the helper (`uv`-managed package; entry point `git-remote-tarssh = "tarssh.remote:main"`).
-- `skills/tarssh/` — the agent skill for operating a config repo; installed per clone or per agent, not loaded from here.
+- `src/waldo/` — the helper (`uv`-managed package; entry point `git-remote-waldo = "waldo.remote:main"`).
+- `skills/waldo/` — the agent skill for operating a config repo; installed per clone or per agent, not loaded from here.
 - `tests/` — protocol and target-invariant tests.
 - `docs/` — ADRs, design, agent docs. `.scratch/` — issues and specs.
 

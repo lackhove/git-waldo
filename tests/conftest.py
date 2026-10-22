@@ -1,4 +1,4 @@
-"""Fixtures shared by the tarssh protocol tests."""
+"""Fixtures shared by the waldo protocol tests."""
 
 from __future__ import annotations
 
@@ -69,28 +69,28 @@ def driver(make_driver):
 
 @pytest.fixture
 def git_env(fake_ssh, stub_command):
-    """Environment for real git: ``git-remote-tarssh`` resolves to the stub."""
-    return fake_ssh.env({"TARSSH_HELPER": shlex.join(stub_command)})
+    """Environment for real git: ``git-remote-waldo`` resolves to the stub."""
+    return fake_ssh.env({"WALDO_HELPER": shlex.join(stub_command)})
 
 
 @pytest.fixture
 def real_helper():
     """Argv that runs the real helper module."""
-    return [sys.executable, "-m", "tarssh.remote"]
+    return [sys.executable, "-m", "waldo.remote"]
 
 
 @pytest.fixture
-def tarssh_env(fake_ssh):
-    """The fake SSH environment with every ``TARSSH_*`` override removed."""
+def waldo_env(fake_ssh):
+    """The fake SSH environment with every ``WALDO_*`` override removed."""
     environment = fake_ssh.env()
-    for name in ("TARSSH_USER", "TARSSH_HOST", "TARSSH_SSH_PORT", "TARSSH_DIR"):
+    for name in ("WALDO_USER", "WALDO_HOST", "WALDO_SSH_PORT", "WALDO_DIR"):
         environment.pop(name, None)
     return environment
 
 
 @pytest.fixture
-def real_git_env(fake_ssh, tarssh_env):
+def real_git_env(fake_ssh, waldo_env):
     """Environment for real git with the real helper discoverable on PATH."""
-    environment = dict(tarssh_env)
-    environment["TARSSH_HELPER"] = "module:tarssh.remote"
+    environment = dict(waldo_env)
+    environment["WALDO_HELPER"] = "module:waldo.remote"
     return environment

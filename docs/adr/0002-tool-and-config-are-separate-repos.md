@@ -18,4 +18,4 @@ This repository holds both the sync tool and the mirrored config under `config/`
 
 ## Refinement (2026-10-18, from tickets 03 and 06)
 
-"Imported as a single commit with its own workflow docs" is realized as **two** commits: the import, whose tree is byte-identical to the target, and the furniture (`AGENTS.md`, `.tarssh.example.toml`) on top. Keeping the furniture out of the import is what makes the import verifiable against the live tree, and it gives the first push a real delta to deploy. The fence (`.gitignore`) belongs to the import commit, because the target must already carry it for that equality to hold.
+"Imported as a single commit with its own workflow docs" is realized as **two** commits: the import, whose tree is byte-identical to the target, and the furniture (`AGENTS.md`, `.waldo.example.toml`) on top. Keeping the furniture out of the import is what makes the import verifiable against the live tree, and it gives the first push a real delta to deploy. The fence (`.gitignore`) belongs to the import commit, because the target must already carry it for that equality to hold.

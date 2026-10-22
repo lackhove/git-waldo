@@ -44,7 +44,7 @@ def _init_repo(tmp_path, env):
 
 def _list(make_driver, url, env, repo, *, remote="origin"):
     return make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         remote=remote,
         url=url,
         env=env,
@@ -114,7 +114,7 @@ def _base_commit(repo, env, fence: str):
 
 
 def test_snapshot_carries_files_across_directories_symlinks_and_modes(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     regular = {
@@ -130,11 +130,11 @@ def test_snapshot_carries_files_across_directories_symlinks_and_modes(
     target.symlink("scripts-link", "nested/scripts")
     target.mkdir("empty")
     target.mkdir("empty/nested")
-    repo = _init_repo(tmp_path, tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
     oid = _oid(result)
-    tree = _ls_tree(repo, oid, tarssh_env)
+    tree = _ls_tree(repo, oid, waldo_env)
 
     expected = {
         "settings.yaml": "100644",
@@ -151,14 +151,14 @@ def test_snapshot_carries_files_across_directories_symlinks_and_modes(
     for name, content in regular.items():
         mode, blob = tree[name.encode()]
         assert mode == "100644"
-        assert _blob(repo, blob, tarssh_env) == content
-    assert _blob(repo, tree[b"bin/run.sh"][1], tarssh_env) == b"#!/bin/sh\nexit 0\n"
+        assert _blob(repo, blob, waldo_env) == content
+    assert _blob(repo, tree[b"bin/run.sh"][1], waldo_env) == b"#!/bin/sh\nexit 0\n"
     assert (
-        _blob(repo, tree[b"current"][1], tarssh_env)
+        _blob(repo, tree[b"current"][1], waldo_env)
         == (target.path / "current").readlink().as_posix().encode()
     )
     assert (
-        _blob(repo, tree[b"scripts-link"][1], tarssh_env)
+        _blob(repo, tree[b"scripts-link"][1], waldo_env)
         == (target.path / "scripts-link").readlink().as_posix().encode()
     )
     assert all(b"empty" not in path for path in tree)
@@ -170,7 +170,7 @@ def test_snapshot_carries_files_across_directories_symlinks_and_modes(
 
 
 def test_target_gitignore_is_the_fence_only_when_no_local_fence_exists(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     target.write(".gitignore", b"secret.txt\nruntime/\n")
@@ -181,30 +181,30 @@ def test_target_gitignore_is_the_fence_only_when_no_local_fence_exists(
             "runtime/state.json": b'{"state": "on"}\n',
         }
     )
-    repo = _init_repo(tmp_path, tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
 
-    first = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    first = _list(make_driver, fake_ssh.url, waldo_env, repo)
     oid = _oid(first)
-    tree = _ls_tree(repo, oid, tarssh_env)
+    tree = _ls_tree(repo, oid, waldo_env)
     assert {path.decode() for path in tree} == {".gitignore", "settings.yaml"}
 
-    _git(repo, "update-ref", "refs/remotes/origin/main", oid, env=tarssh_env)
-    commits = _commit_objects(repo, tarssh_env)
+    _git(repo, "update-ref", "refs/remotes/origin/main", oid, env=waldo_env)
+    commits = _commit_objects(repo, waldo_env)
 
     target.write("secret.txt", b"token: rotated\n")
     target.write("runtime/state.json", b'{"state": "off"}\n')
-    second = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    second = _list(make_driver, fake_ssh.url, waldo_env, repo)
 
     assert _oid(second) == oid
     assert (
-        _git(repo, "rev-parse", "refs/remotes/origin/main", env=tarssh_env).stdout.strip().decode()
+        _git(repo, "rev-parse", "refs/remotes/origin/main", env=waldo_env).stdout.strip().decode()
         == oid
     )
-    assert _commit_objects(repo, tarssh_env) == commits
+    assert _commit_objects(repo, waldo_env) == commits
 
 
 def test_a_remote_branch_fence_hides_paths_not_ignored_at_head(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     target.write(".gitignore", b"head-secret.txt\n")
@@ -215,25 +215,25 @@ def test_a_remote_branch_fence_hides_paths_not_ignored_at_head(
             "head-secret.txt": b"head secret\n",
         }
     )
-    repo = _init_repo(tmp_path, tarssh_env)
-    base = _base_commit(repo, tarssh_env, "remote-secret.txt\n")
-    _git(repo, "update-ref", "refs/remotes/origin/main", base, env=tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
+    base = _base_commit(repo, waldo_env, "remote-secret.txt\n")
+    _git(repo, "update-ref", "refs/remotes/origin/main", base, env=waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
     oid = _oid(result)
-    tree = _ls_tree(repo, oid, tarssh_env)
+    tree = _ls_tree(repo, oid, waldo_env)
 
     assert {path.decode() for path in tree} == {
         ".gitignore",
         "visible.txt",
         "head-secret.txt",
     }
-    commit = _git(repo, "cat-file", "commit", oid, env=tarssh_env).stdout.decode()
+    commit = _git(repo, "cat-file", "commit", oid, env=waldo_env).stdout.decode()
     assert f"parent {base}" in commit
 
 
 def test_a_head_fence_hides_paths_not_ignored_at_the_remote_branch(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     target.write(".gitignore", b"remote-secret.txt\n")
@@ -244,26 +244,24 @@ def test_a_head_fence_hides_paths_not_ignored_at_the_remote_branch(
             "head-secret.txt": b"head secret\n",
         }
     )
-    repo = _init_repo(tmp_path, tarssh_env)
-    base = _base_commit(repo, tarssh_env, "head-secret.txt\n")
-    _git(repo, "update-ref", "refs/heads/main", base, env=tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
+    base = _base_commit(repo, waldo_env, "head-secret.txt\n")
+    _git(repo, "update-ref", "refs/heads/main", base, env=waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
     oid = _oid(result)
-    tree = _ls_tree(repo, oid, tarssh_env)
+    tree = _ls_tree(repo, oid, waldo_env)
 
     assert {path.decode() for path in tree} == {
         ".gitignore",
         "visible.txt",
         "remote-secret.txt",
     }
-    commit = _git(repo, "cat-file", "commit", oid, env=tarssh_env).stdout.decode()
+    commit = _git(repo, "cat-file", "commit", oid, env=waldo_env).stdout.decode()
     assert "parent " not in commit
 
 
-def test_both_local_fences_hide_their_own_paths(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
-):
+def test_both_local_fences_hide_their_own_paths(make_driver, fake_ssh, target, waldo_env, tmp_path):
     target.create()
     target.populate(
         {
@@ -272,20 +270,20 @@ def test_both_local_fences_hide_their_own_paths(
             "head-secret.txt": b"head secret\n",
         }
     )
-    repo = _init_repo(tmp_path, tarssh_env)
-    remote_base = _base_commit(repo, tarssh_env, "remote-secret.txt\n")
-    _git(repo, "update-ref", "refs/remotes/origin/main", remote_base, env=tarssh_env)
-    head_base = _base_commit(repo, tarssh_env, "head-secret.txt\n")
-    _git(repo, "update-ref", "refs/heads/main", head_base, env=tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
+    remote_base = _base_commit(repo, waldo_env, "remote-secret.txt\n")
+    _git(repo, "update-ref", "refs/remotes/origin/main", remote_base, env=waldo_env)
+    head_base = _base_commit(repo, waldo_env, "head-secret.txt\n")
+    _git(repo, "update-ref", "refs/heads/main", head_base, env=waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
-    tree = _ls_tree(repo, _oid(result), tarssh_env)
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
+    tree = _ls_tree(repo, _oid(result), waldo_env)
 
     assert {path.decode() for path in tree} == {"visible.txt"}
 
 
 def test_a_negation_cannot_reinclude_a_file_under_an_ignored_directory(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     target.write(".gitignore", b"runtime/\n!.gitignore\n")
@@ -296,12 +294,12 @@ def test_a_negation_cannot_reinclude_a_file_under_an_ignored_directory(
             "runtime/state.json": b'{"state": "on"}\n',
         }
     )
-    repo = _init_repo(tmp_path, tarssh_env)
-    base = _base_commit(repo, tarssh_env, "runtime/\n!.gitignore\n")
-    _git(repo, "update-ref", "refs/heads/main", base, env=tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
+    base = _base_commit(repo, waldo_env, "runtime/\n!.gitignore\n")
+    _git(repo, "update-ref", "refs/heads/main", base, env=waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
-    tree = _ls_tree(repo, _oid(result), tarssh_env)
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
+    tree = _ls_tree(repo, _oid(result), waldo_env)
 
     assert {path.decode() for path in tree} == {".gitignore", "visible.txt"}
 
@@ -322,9 +320,7 @@ def _git_ignores(repo, name, env):
     return completed.returncode == 0
 
 
-def test_fence_semantics_match_git_check_ignore(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
-):
+def test_fence_semantics_match_git_check_ignore(make_driver, fake_ssh, target, waldo_env, tmp_path):
     """Use git as the oracle for directory pruning and negations."""
     fence = """\
 *
@@ -359,17 +355,17 @@ nested/*.log
         if name != ".gitignore":
             target.write(name, b"content\n")
 
-    repo = _init_repo(tmp_path, tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
     (repo / ".gitignore").write_text(fence, encoding="utf-8")
-    base = _base_commit(repo, tarssh_env, fence)
-    _git(repo, "update-ref", "refs/heads/main", base, env=tarssh_env)
+    base = _base_commit(repo, waldo_env, fence)
+    _git(repo, "update-ref", "refs/heads/main", base, env=waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
-    actual = {path.decode() for path in _ls_tree(repo, _oid(result), tarssh_env)}
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
+    actual = {path.decode() for path in _ls_tree(repo, _oid(result), waldo_env)}
     expected = {
         name
         for name in candidates
-        if name == ".gitignore" or not _git_ignores(repo, name, tarssh_env)
+        if name == ".gitignore" or not _git_ignores(repo, name, waldo_env)
     }
 
     assert actual == expected
@@ -379,94 +375,94 @@ nested/*.log
 
 
 def test_a_changed_target_is_parented_on_the_existing_remote_branch(
-    make_driver, fake_ssh, target, tarssh_env, tmp_path
+    make_driver, fake_ssh, target, waldo_env, tmp_path
 ):
     target.create()
     target.populate({"one.txt": b"one\n"})
-    repo = _init_repo(tmp_path, tarssh_env)
-    first = _oid(_list(make_driver, fake_ssh.url, tarssh_env, repo))
-    _git(repo, "update-ref", "refs/remotes/origin/main", first, env=tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
+    first = _oid(_list(make_driver, fake_ssh.url, waldo_env, repo))
+    _git(repo, "update-ref", "refs/remotes/origin/main", first, env=waldo_env)
 
     target.write("two.txt", b"two\n")
-    second = _oid(_list(make_driver, fake_ssh.url, tarssh_env, repo))
+    second = _oid(_list(make_driver, fake_ssh.url, waldo_env, repo))
 
     assert second != first
-    commit = _git(repo, "cat-file", "commit", second, env=tarssh_env).stdout.decode()
+    commit = _git(repo, "cat-file", "commit", second, env=waldo_env).stdout.decode()
     assert f"parent {first}" in commit
-    assert {path.decode() for path in _ls_tree(repo, second, tarssh_env)} == {
+    assert {path.decode() for path in _ls_tree(repo, second, waldo_env)} == {
         "one.txt",
         "two.txt",
     }
 
 
-def test_empty_directories_are_ignored(make_driver, fake_ssh, target, tarssh_env, tmp_path):
+def test_empty_directories_are_ignored(make_driver, fake_ssh, target, waldo_env, tmp_path):
     target.create()
     target.mkdir("empty")
     target.mkdir("empty/deeper")
     target.populate({"file.txt": b"content\n"})
-    repo = _init_repo(tmp_path, tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
 
-    assert {path.decode() for path in _ls_tree(repo, _oid(result), tarssh_env)} == {"file.txt"}
+    assert {path.decode() for path in _ls_tree(repo, _oid(result), waldo_env)} == {"file.txt"}
 
 
-def _assert_refused(make_driver, fake_ssh, tarssh_env, repo, expected):
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+def _assert_refused(make_driver, fake_ssh, waldo_env, repo, expected):
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
     assert result.exit_code != 0
     assert result.stdout == ""
     assert expected in result.stderr
     assert "cannot represent target path" in result.stderr
 
 
-def test_a_fifo_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
+def test_a_fifo_is_refused_by_name(make_driver, fake_ssh, target, waldo_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n"})
     os.mkfifo(target.path / "pipe")
-    repo = _init_repo(tmp_path, tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
 
-    _assert_refused(make_driver, fake_ssh, tarssh_env, repo, "pipe")
+    _assert_refused(make_driver, fake_ssh, waldo_env, repo, "pipe")
 
 
-def test_a_socket_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
+def test_a_socket_is_refused_by_name(make_driver, fake_ssh, target, waldo_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n"})
     server = socket.socket(socket.AF_UNIX)
     try:
         server.bind(str(target.path / "service.sock"))
-        repo = _init_repo(tmp_path, tarssh_env)
-        _assert_refused(make_driver, fake_ssh, tarssh_env, repo, "service.sock")
+        repo = _init_repo(tmp_path, waldo_env)
+        _assert_refused(make_driver, fake_ssh, waldo_env, repo, "service.sock")
     finally:
         server.close()
 
 
-def test_a_device_node_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
+def test_a_device_node_is_refused_by_name(make_driver, fake_ssh, target, waldo_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n"})
     try:
         os.mknod(target.path / "device", stat.S_IFCHR | 0o600, os.makedev(1, 3))
     except (PermissionError, OSError):
         pytest.skip("creating device nodes needs CAP_MKNOD")
-    repo = _init_repo(tmp_path, tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
 
-    _assert_refused(make_driver, fake_ssh, tarssh_env, repo, "device")
+    _assert_refused(make_driver, fake_ssh, waldo_env, repo, "device")
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permission bits")
-def test_an_unreadable_file_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
+def test_an_unreadable_file_is_refused_by_name(make_driver, fake_ssh, target, waldo_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n", "secret.txt": b"secret\n"})
     target.make_unreadable("secret.txt")
-    repo = _init_repo(tmp_path, tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
 
     assert result.exit_code != 0
     assert result.stdout == ""
     assert "secret.txt" in result.stderr
 
 
-def test_a_non_utf8_name_is_refused_by_name(make_driver, fake_ssh, target, tarssh_env, tmp_path):
+def test_a_non_utf8_name_is_refused_by_name(make_driver, fake_ssh, target, waldo_env, tmp_path):
     target.create()
     target.populate({"visible.txt": b"visible\n"})
     raw_name = b"bad-\xff.txt"
@@ -476,9 +472,9 @@ def test_a_non_utf8_name_is_refused_by_name(make_driver, fake_ssh, target, tarss
         os.write(descriptor, b"nope\n")
     finally:
         os.close(descriptor)
-    repo = _init_repo(tmp_path, tarssh_env)
+    repo = _init_repo(tmp_path, waldo_env)
 
-    result = _list(make_driver, fake_ssh.url, tarssh_env, repo)
+    result = _list(make_driver, fake_ssh.url, waldo_env, repo)
 
     assert result.exit_code != 0
     assert result.stdout == ""

@@ -20,7 +20,7 @@ from push_support import (
 
 def helper_driver(make_driver, fake_ssh, env, repo):
     return make_driver(
-        [sys.executable, "-m", "tarssh.remote"],
+        [sys.executable, "-m", "waldo.remote"],
         remote="target",
         url=fake_ssh.url,
         env=env,
@@ -178,7 +178,7 @@ def test_an_unreachable_target_fails_the_push_on_stderr_and_exits_nonzero(
 
     assert completed.returncode != 0
     assert "Connection refused" in completed.stderr
-    assert "git-remote-tarssh:" in completed.stderr
+    assert "git-remote-waldo:" in completed.stderr
     assert "deploying" not in completed.stderr
     assert not lock_path(target).exists()
 
@@ -280,8 +280,8 @@ def test_a_failed_deletion_releases_the_lock_and_names_each_path(
     failed = push(repo, real_git_env)
 
     assert failed.returncode != 0
-    assert "git-remote-tarssh: cannot delete a.txt from target" in failed.stderr
-    assert "git-remote-tarssh: cannot delete b.txt from target" in failed.stderr
+    assert "git-remote-waldo: cannot delete a.txt from target" in failed.stderr
+    assert "git-remote-waldo: cannot delete b.txt from target" in failed.stderr
     assert "cannot delete from target" in failed.stderr
     assert any(item.kind == "removal" for item in fake_ssh.failures)
     assert not lock_path(target).exists()
@@ -324,7 +324,7 @@ def test_a_failed_deletion_names_only_the_paths_the_target_reports(
     failed = push(repo, real_git_env)
 
     assert failed.returncode != 0
-    assert "git-remote-tarssh: cannot delete a.txt from target" in failed.stderr
-    assert "git-remote-tarssh: cannot delete a.txt.bak from target" not in failed.stderr
+    assert "git-remote-waldo: cannot delete a.txt from target" in failed.stderr
+    assert "git-remote-waldo: cannot delete a.txt.bak from target" not in failed.stderr
     assert "cannot delete from target" in failed.stderr
     assert not lock_path(target).exists()

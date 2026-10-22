@@ -1,10 +1,10 @@
-# tarssh — design
+# git-waldo — design
 
 Status: settled; the handoff for implementation. Every decision here traces to an ADR or a ticket in `.scratch/git-native-sync/issues/` (see [Traceability](#traceability)).
 
 ## 1. What this is
 
-`tarssh` is a git remote helper. It makes a host that has **no git** — only SSH and busybox `find`/`tar` — a first-class git remote: `git fetch` records what the host's directory contains as a commit, `git merge` merges it, `git push` deploys a commit's delta into that directory. There is no bespoke sync command; git's own semantics are the specification (ADR-0001).
+`git-waldo` is a git remote helper. It makes a host that has **no git** — only SSH and busybox `find`/`tar` — a first-class git remote: `git fetch` records what the host's directory contains as a commit, `git merge` merges it, `git push` deploys a commit's delta into that directory. There is no bespoke sync command; git's own semantics are the specification (ADR-0001).
 
 Nothing in the tool knows about the application. The config repo's own documentation covers `the config check` and reloading.
 
@@ -17,13 +17,13 @@ See `GLOSSARY.md`. The load-bearing terms: **target** (the remote directory), **
 ### URL
 
 ```
-tarssh://[user@]host[:port]/absolute/path
+waldo://[user@]host[:port]/absolute/path
 ```
 
 - The path must be absolute; a relative path is refused with an error naming the URL.
 - `user` defaults to the local username (ssh's own rule); the example config uses `root`.
 - `port` defaults to 22.
-- Only `scheme://` is accepted. `tarssh::…` is not parsed — the target needs a port, and `ssh://`-shaped URLs are what operators already know.
+- Both the full `waldo://…` URL and the descriptor-only `waldo::` form are accepted. A bare `waldo:` is not (see below).
 
 ### Remote name
 
@@ -33,38 +33,40 @@ tarssh://[user@]host[:port]/absolute/path
 
 Four layers describe the same target. Each field is resolved independently, most specific first:
 
-1. `TARSSH_USER`, `TARSSH_HOST`, `TARSSH_SSH_PORT`, `TARSSH_DIR` — one-off overrides.
+1. `WALDO_USER`, `WALDO_HOST`, `WALDO_SSH_PORT`, `WALDO_DIR` — one-off overrides.
 2. The remote URL, for whichever components it carries.
-3. `.tarssh.toml` at the config repo root — the committed default, so a fresh clone needs no host knowledge. Located via `git rev-parse --show-toplevel`, never the current directory:
+3. `.waldo.toml` at the config repo root — the committed default, so a fresh clone needs no host knowledge. Located via `git rev-parse --show-toplevel`, never the current directory:
 
    ```toml
    user = "root"
    host = "host.example"
-   ssh_port = 22222
+   ssh_port = 2222
    dir = "/srv/config"
    ```
 
-   `.tarssh.toml` is gitignored; `.tarssh.example.toml` is committed as furniture.
+   `.waldo.toml` is gitignored; `.waldo.example.toml` is committed as furniture.
 
 4. Defaults: `user` = local username, port 22, no dir (required).
 
 Two URL shapes are meaningful:
 
-- `tarssh://[user@]host[:port]/absolute/path` — carries the target. Used for one-off inspection (`git ls-remote tarssh://…`) and for retargeting a clone (`git remote set-url`).
-- `tarssh::` — carries nothing; the descriptor comes from `.tarssh.toml`. This is the shape `--config` writes (`git remote add target tarssh::`), so nobody types it by hand.
+- `waldo://[user@]host[:port]/absolute/path` — carries the target. Used for one-off inspection (`git ls-remote waldo://…`) and for retargeting a clone (`git remote set-url`).
+- `waldo::` — carries nothing; the descriptor comes from `.waldo.toml`. This is the shape `--config` writes (`git remote add target waldo::`), so nobody types it by hand.
 
-A bare `tarssh:` is **not** a helper URL: git parses it as scp-like `host:path` and tries to SSH to a host called `tarssh` (verified against git 2.56). Only `tarssh://…` and `tarssh::` reach the helper.
+A bare `waldo:` is **not** a helper URL: git parses it as scp-like `host:path` and tries to SSH to a host called `waldo` (verified against git 2.56). Only `waldo://…` and `waldo::` reach the helper.
 
-When the URL contradicts `.tarssh.toml`, the helper proceeds and prints one stderr line naming both values, for every field the URL carries explicitly whose effective value still comes from the URL (a `TARSSH_*` override suppresses that field) — `using user=root, ssh_port=22222 from the remote URL; .tarssh.toml says user=deployer, ssh_port=22`. A retarget is `git remote set-url`, not a commit; the committed file only has to be right for new clones. The guard against deploying to the wrong host is the clean check plus the target named on stderr, not this precedence.
+An old `.tarssh.toml` is never parsed. When no host is otherwise resolvable and that file exists while `.waldo.toml` does not, resolution fails with an error naming both files and saying the project was renamed. This is a migration diagnostic, not compatibility.
+
+When the URL contradicts `.waldo.toml`, the helper proceeds and prints one stderr line naming both values, for every field the URL carries explicitly whose effective value still comes from the URL (a `WALDO_*` override suppresses that field) — `using user=root, ssh_port=2222 from the remote URL; .waldo.toml says user=deployer, ssh_port=22`. A retarget is `git remote set-url`, not a commit; the committed file only has to be right for new clones. The guard against deploying to the wrong host is the clean check plus the target named on stderr, not this precedence.
 
 ### Executables
 
-One binary, `git-remote-tarssh`, installed by `uv tool install tarssh`. No separate `tarssh` command. Tool-mode verbs are double-dash prefixed and a leading `-` in `argv[1]` always means a verb, never a remote:
+One binary, `git-remote-waldo`, installed by `uv tool install git-waldo`. No separate `waldo` command. Tool-mode verbs are double-dash prefixed and a leading `-` in `argv[1]` always means a verb, never a remote:
 
-- `git-remote-tarssh --config` — interactive writer for `.tarssh.toml` (refuses to clobber without confirmation), then registers the remote as `git remote add target tarssh::` when none exists.
-- `git-remote-tarssh --version` — prints the tool version.
+- `git-remote-waldo --config` — interactive writer for `.waldo.toml` (refuses to clobber without confirmation), then registers the remote as `git remote add target waldo::` when none exists.
+- `git-remote-waldo --version` — prints the tool version.
 
-Any other invocation is the helper protocol: `git-remote-tarssh <remote> <url>`.
+Any other invocation is the helper protocol: `git-remote-waldo <remote> <url>`.
 
 ## 4. Protocol surface
 
@@ -99,7 +101,7 @@ Rejections exit 0 after printing statuses — git must see a protocol result. On
 
 A snapshot records the target's state as a commit no human authored.
 
-- **Ident** `tarssh <tarssh@localhost>`; **subject** `snapshot of <host>:<path>`; author and committer date = now.
+- **Ident** `waldo <waldo@localhost>`; **subject** `snapshot of <host>:<path>`; author and committer date = now.
 - **Parent**: the current `refs/remotes/target/main` when it exists, none otherwise. This is what makes pulls mergeable instead of unrelated-rooted.
 - **Skip rule**: if the built tree equals the parent's tree, emit no commit and advertise the parent's oid unchanged. A clean target must never move `target/main` or invent empty commits.
 
@@ -120,7 +122,7 @@ Regular files (0644/0755) and symlinks (mode 120000, stored as-is, never followe
 
 Order of operations for a push batch:
 
-1. Take the lock: `mkdir /tmp/tarssh-<hash of target path>.lock` **on the target**, outside the target directory so it can never become drift. Released on every exit path; a stale lock is reported by path, never auto-broken.
+1. Take the lock: `mkdir /tmp/waldo-<16 hex of the target path>.lock` **on the target**, outside the target directory so it can never become drift. Released on every exit path; a stale lock is reported by path, never auto-broken.
 2. Verify the target is clean: tree equality between the freshly built snapshot and `refs/remotes/target/main` (both local; no extra transfer, no `sha1sum` pass). Drift detail from `git diff-tree -r --name-status` — first ten paths, then a count.
 3. Verify fast-forward against the oid advertised by `list for-push` (remembered in-process; the `push` line carries no old oid), unless the ref is being created.
 4. Apply, unless `--dry-run`:
@@ -142,8 +144,8 @@ An interrupted push leaves the target drifted; the next push refuses until the o
 
 stdout is the protocol. Everything for the operator goes to stderr:
 
-- one line naming the target and counts: `deploying 3 changes to user@10.0.0.7:22222:/srv/config: 2 written, 1 deleted`
-- `already up to date with user@10.0.0.7:22222:/srv/config` for a no-op (git prints `Everything up-to-date` only when it never invoked the helper)
+- one line naming the target and counts: `deploying 3 changes to user@10.0.0.7:2222:/srv/config: 2 written, 1 deleted`
+- `already up to date with user@10.0.0.7:2222:/srv/config` for a no-op (git prints `Everything up-to-date` only when it never invoked the helper)
 - the drift path list on rejection
 - per-file lines only when a deletion is refused
 
@@ -153,11 +155,11 @@ Force pushes, branch deletion, tags, extra branches, `pull`/`sync` verbs, auto-m
 
 ## 10. Repo split
 
-Executed once, after this spec: `config/**` moved to a new `config-repo` repo whose root *is* the target directory; this repo became `tarssh` (ADR-0002). The seed is a hand-made import commit whose tree is byte-identical to the target, furniture second. The temporary bridge was retired at cutover (ticket 08) once `git-remote-tarssh` worked; the tool repo carries no deploy script. The split's six-step order and acceptance criteria are in ticket 03; the cutover and its end-to-end check are in ticket 08.
+Executed once, after this spec: `config/**` moved to a new `config-repo` repo whose root *is* the target directory; this repo became `git-waldo` (ADR-0002). The seed is a hand-made import commit whose tree is byte-identical to the target, furniture second. The temporary bridge was retired at cutover (ticket 08) once `git-remote-waldo` worked; the tool repo carries no deploy script. The split's six-step order and acceptance criteria are in ticket 03; the cutover and its end-to-end check are in ticket 08.
 
 ## 11. Not covered here
 
-- Packaging details beyond `uv tool install tarssh` providing `git-remote-tarssh` (`map.md` → Not yet specified).
+- Packaging details beyond `uv tool install git-waldo` providing `git-remote-waldo` (`map.md` → Not yet specified).
 - A protocol-level test harness and a fake busybox-only target.
 - Cost on targets far larger than today's 17 files.
 - Behaviour when the installed tool and an existing config repo disagree about the protocol.
@@ -168,7 +170,8 @@ Executed once, after this spec: `config/**` moved to a new `config-repo` repo wh
 |---|---|
 | Target is a git remote, git semantics are the spec, no force/CLI | ADR-0001 |
 | Tool and config are separate repos; one target per config repo | ADR-0002 |
-| Tool named `tarssh`; `target` as remote name; `main` on both sides; one binary; `--config`/`--version` | 02 |
+| Project named `git-waldo`, interface and scheme `waldo`; `target` as remote name; `main` on both sides; one binary; `--config`/`--version` | ADR-0003 |
+| Rename from `tarssh`, new scheme, descriptor, environment and lock identifiers; no shim | ADR-0003 |
 | Committed descriptor, env overrides, URL wins with a disagreement warning | 02, 06 (Q7b) |
 | Capabilities, `list`/`list for-push`/`fetch`/`push`/`option`, status tokens, no `?` | 01, 04 |
 | Snapshot ident/message/parent/skip rule | 04 |

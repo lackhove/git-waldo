@@ -13,12 +13,12 @@ import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from tarssh.errors import ProtocolError
+from waldo.errors import ProtocolError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from tarssh.descriptor import Descriptor
+    from waldo.descriptor import Descriptor
 
 
 def _detail(text: str | bytes) -> str:
@@ -166,7 +166,7 @@ class Target:
     def lock_path(self) -> str:
         """The lock lives outside the target so it can never become drift."""
         digest = hashlib.sha256(self.descriptor.path.encode()).hexdigest()[:16]
-        return f"/tmp/tarssh-{digest}.lock"  # noqa: S108  # intentional: never drift
+        return f"/tmp/waldo-{digest}.lock"  # noqa: S108  # intentional: never drift
 
     def acquire_lock(self) -> str:
         path = self.lock_path()

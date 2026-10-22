@@ -1,4 +1,4 @@
-"""Reusable test infrastructure for the tarssh remote helper.
+"""Reusable test infrastructure for the waldo remote helper.
 
 The public seam is a fake target reached through an SSH shim whose remote
 PATH contains only the commands a busybox host has. Nothing here imports the
@@ -123,7 +123,7 @@ class Target:
 
     def url(self, host: str = "fake-target") -> str:
         """A helper URL addressing this target over the fake SSH seam."""
-        return f"tarssh://{host}{self.path}"
+        return f"waldo://{host}{self.path}"
 
 
 @dataclass(frozen=True)
@@ -145,7 +145,7 @@ class FakeSSH:
     """A localhost-only SSH stand-in wired into a restricted target PATH.
 
     ``client_bin`` holds ``ssh``, traps for ``scp``/``sftp``/``rsync`` and the
-    ``git-remote-tarssh`` shim. Add it to a helper's ``PATH`` with :meth:`env`.
+    ``git-remote-waldo`` shim. Add it to a helper's ``PATH`` with :meth:`env`.
     The target itself can run only :data:`BUSYBOX_COMMANDS`.
     """
 
@@ -222,7 +222,7 @@ class FakeSSH:
             )
         remote_shim = Path(__file__).with_name("remote_shim.py")
         self._write_script(
-            self.client_bin / "git-remote-tarssh",
+            self.client_bin / "git-remote-waldo",
             f'#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(remote_shim))} "$@"\n',
         )
 
@@ -404,7 +404,7 @@ class ProtocolDriver:
         command: Iterable[str],
         *,
         remote: str = "origin",
-        url: str = "tarssh://fake-target/target",
+        url: str = "waldo://fake-target/target",
         env: Mapping[str, str] | None = None,
         cwd: str | Path | None = None,
         timeout: float = 30.0,
